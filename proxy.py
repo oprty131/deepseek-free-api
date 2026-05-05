@@ -143,6 +143,7 @@ def _response_reasoning_item(summary_text: str, item_id: str | None = None) -> d
     return {
         "id": item_id or f"rs_{uuid.uuid4().hex[:24]}",
         "type": "reasoning",
+        "status": "completed",
         "summary": [{
             "type": "summary_text",
             "text": summary_text or "",
@@ -544,7 +545,7 @@ def _response_failed_payload(response_id: str, created: int, model_name: str, bo
         "output": [],
         "parallel_tool_calls": True,
         "previous_response_id": previous_response_id,
-        "reasoning": {"effort": body.get("reasoning", {}).get("effort")} if isinstance(body.get("reasoning"), dict) else {},
+        "reasoning": {"effort": body.get("reasoning", {}).get("effort")} if isinstance(body.get("reasoning"), dict) and body.get("reasoning", {}).get("effort") else None,
         "store": True if body.get("store", True) else False,
         "temperature": body.get("temperature"),
         "text": text_cfg,
@@ -817,7 +818,7 @@ def _build_responses_record(
         "output": output,
         "parallel_tool_calls": True,
         "previous_response_id": body.get("previous_response_id"),
-        "reasoning": {"effort": body.get("reasoning", {}).get("effort")} if isinstance(body.get("reasoning"), dict) else {},
+        "reasoning": {"effort": body.get("reasoning", {}).get("effort")} if isinstance(body.get("reasoning"), dict) and body.get("reasoning", {}).get("effort") else None,
         "store": True if body.get("store", True) else False,
         "temperature": body.get("temperature"),
         "text": text_config,
@@ -844,7 +845,7 @@ _RESPONSE_PUBLIC_DEFAULTS = {
     "max_output_tokens": None,
     "parallel_tool_calls": True,
     "previous_response_id": None,
-    "reasoning": {},
+    "reasoning": None,
     "store": True,
     "temperature": None,
     "text": {"format": {"type": "text"}},
@@ -927,7 +928,7 @@ def _public_response_record(record: dict) -> dict:
     payload["output"] = [_normalized_response_output_item(item) for item in _ensure_list(payload.get("output"))]
     if not isinstance(payload.get("metadata"), dict):
         payload["metadata"] = {}
-    if not isinstance(payload.get("reasoning"), dict):
+    if payload.get("reasoning") is not None and not isinstance(payload.get("reasoning"), dict):
         payload["reasoning"] = {}
     if not isinstance(payload.get("text"), dict):
         payload["text"] = {"format": {"type": "text"}}
@@ -2831,6 +2832,11 @@ async def responses(request: Request):
 
                 reasoning_delta = delta.get("reasoning_content")
                 if isinstance(reasoning_delta, str) and reasoning_delta:
+                    # 跳过纯空 <think></think> 块（可能含空白字符），
+                    # 避免客户端显示无内容的空白思维链
+                    stripped = re.sub(r'<think>\s*</think>', '', reasoning_delta, flags=re.DOTALL).strip()
+                    if not stripped:
+                        continue  # 全空，跳过这个 delta
                     reasoning_parts.append(reasoning_delta)
                     for event in _ensure_reasoning_started():
                         yield _sse_json(_event_payload(event))
@@ -2884,13 +2890,14 @@ async def responses(request: Request):
                         if fn.get("name"):
                             slot["name"] = fn.get("name")
                         if fn.get("arguments"):
+                            old_args = slot["arguments"]
                             slot["arguments"] += fn.get("arguments")
                             function_item = {
                                 "id": slot["fc_id"],
                                 "type": "function_call",
                                 "call_id": slot["id"],
                                 "name": slot["name"],
-                                "arguments": slot["arguments"] or "{}",
+                                "arguments": "",
                                 "status": "in_progress",
                             }
                             output_index, event = _start_output_item(function_item)
@@ -2906,7 +2913,14 @@ async def responses(request: Request):
                 if finish_reason:
                     output_by_id: dict[str, dict] = {}
                     if reasoning_parts:
-                        output_by_id[reasoning_item_id] = _response_reasoning_item("".join(reasoning_parts), reasoning_item_id)
+                        full_reasoning = "".join(reasoning_parts)
+                        # 剥除空 <think></think> 块（可能含空白字符），避免客户端显示空白思维链
+                        cleaned = re.sub(r'<think>\s*</think>', '', full_reasoning, flags=re.DOTALL).strip()
+                        if not cleaned:
+                            reasoning_parts.clear()  # 清空，跳过后续 reasoning 相关事件
+                        else:
+                            reasoning_parts = [cleaned]  # 替换为清理后的文本
+                            output_by_id[reasoning_item_id] = _response_reasoning_item(cleaned, reasoning_item_id)
                     if refusal_parts:
                         output_by_id[refusal_item_id] = _response_refusal_item("".join(refusal_parts), refusal_item_id)
                     if text_parts:
@@ -3021,6 +3035,9 @@ async def responses(request: Request):
                             "arguments": tc["arguments"] or "{}",
                         }))
                     for idx, item in enumerate(output):
+                        # 推理项已有 reasoning_text.done 结束，跳过 output_item.done 避免 RikkaHub 重复创建空白思维链
+                        if item.get("type") == "reasoning":
+                            continue
                         yield _sse_json(_event_payload({
                             "type": "response.output_item.done",
                             "output_index": idx,
@@ -3034,7 +3051,13 @@ async def responses(request: Request):
 
             output_by_id: dict[str, dict] = {}
             if reasoning_parts:
-                output_by_id[reasoning_item_id] = _response_reasoning_item("".join(reasoning_parts), reasoning_item_id)
+                full_reasoning = "".join(reasoning_parts)
+                cleaned = re.sub(r'<think>\s*</think>', '', full_reasoning, flags=re.DOTALL).strip()
+                if not cleaned:
+                    reasoning_parts.clear()
+                else:
+                    reasoning_parts = [cleaned]
+                    output_by_id[reasoning_item_id] = _response_reasoning_item(cleaned, reasoning_item_id)
             if refusal_parts:
                 output_by_id[refusal_item_id] = _response_refusal_item("".join(refusal_parts), refusal_item_id)
             normalized_text = _normalize_structured_output_text("".join(text_parts), _response_text_config(body)) if text_parts else ""
@@ -3137,6 +3160,8 @@ async def responses(request: Request):
                     "arguments": tc["arguments"] or "{}",
                 }))
             for idx, item in enumerate(output):
+                if item.get("type") == "reasoning":
+                    continue
                 yield _sse_json(_event_payload({
                     "type": "response.output_item.done",
                     "output_index": idx,
