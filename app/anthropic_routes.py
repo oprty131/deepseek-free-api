@@ -53,7 +53,17 @@ async def anthropic_messages(request: Request):
         raise HTTPException(status_code=400, detail=_anthropic_error_response(f"Unknown model: {model}"))
     thinking_enabled, search_enabled, _, _ = model_info
 
-    prompt = convert_messages_for_deepseek(messages)
+    prompt = convert_messages_for_deepseek(messages, tools)
+    # 注入工具定义到 prompt 中
+    if tools:
+        from proxy import build_tool_prompt
+        tool_prompt_text = build_tool_prompt(tools)
+        if tool_prompt_text:
+            last_user_idx = prompt.rfind("<｜User｜>")
+            if last_user_idx >= 0:
+                prompt = prompt[:last_user_idx] + tool_prompt_text + "\n" + prompt[last_user_idx:]
+            else:
+                prompt = tool_prompt_text + "\n" + prompt
     prompt_tokens = _count_tokens(prompt)
 
     if needs_renewal():
@@ -82,7 +92,7 @@ async def anthropic_messages(request: Request):
             async def _gen():
                 async for chunk in orig_iter:
                     yield chunk
-            async for event in _anthropic_stream_response(_gen(), model, msg_id, has_tools=has_tools):
+            async for event in _anthropic_stream_response(_gen(), model, msg_id):
                 yield event
             add_usage(model, prompt_tokens, 0)
             add_tokens("default", cfg.get("session_id", ""), prompt_tokens)

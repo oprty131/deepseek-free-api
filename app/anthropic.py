@@ -94,9 +94,10 @@ def convert_messages(
             result.append(obj)
 
         elif role == "user" and isinstance(content, list):
-            # 用户消息可能有 text + image 混合
+            # 用户消息可能有 text + image + tool_result 混合
             new_blocks = []
             text_parts = []
+            tool_results = []
             for block in content:
                 if block.get("type") == "text":
                     text_parts.append(block.get("text", ""))
@@ -116,14 +117,34 @@ def convert_messages(
                             "type": "image_url",
                             "image_url": {"url": source.get("url", "")}
                         })
+                elif block.get("type") == "tool_result":
+                    tool_results.append(block)
 
+            # 如果有 tool_result，以 tool role 追加
+            if tool_results:
+                for tr in tool_results:
+                    tc = tr.get("content", "")
+                    tool_text = ""
+                    if isinstance(tc, list):
+                        tool_text = "\n".join(
+                            c.get("text", "") for c in tc if isinstance(c, dict) and c.get("type") == "text"
+                        )
+                    else:
+                        tool_text = str(tc)
+                    result.append({
+                        "role": "tool",
+                        "tool_call_id": tr.get("tool_use_id", ""),
+                        "content": tool_text,
+                    })
+
+            # 如果有 text 或 image，还要追加 user 消息
             combined_text = "\n".join(t for t in text_parts if t)
             if combined_text:
                 new_blocks.insert(0, {"type": "text", "text": combined_text})
 
             if new_blocks:
                 result.append({"role": "user", "content": new_blocks})
-            else:
+            elif combined_text and not tool_results:
                 result.append({"role": "user", "content": combined_text})
 
         elif role == "tool" and isinstance(content, list):
