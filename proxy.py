@@ -3041,8 +3041,9 @@ async def responses(request: Request):
             output_by_id[message_item_id] = _response_text_item(normalized_text, message_item_id)
             for idx in sorted(tool_calls.keys()):
                 tc = tool_calls[idx]
-                output_by_id[tc["id"]] = {
-                    "id": tc["id"],
+                fc_id = f"fc_{uuid.uuid4().hex[:24]}"
+                output_by_id[fc_id] = {
+                    "id": fc_id,
                     "type": "function_call",
                     "call_id": tc["id"],
                     "name": tc["name"],
