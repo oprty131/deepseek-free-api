@@ -398,9 +398,9 @@ Remember: The ONLY valid way to use tools is the <|DSML|tool_calls>...</|DSML|to
 
     prompt += "Available tools:\n"
     for tool in tools:
-        fn = tool.get("function", tool)
-        name = fn.get("name", "")
-        desc = fn.get("description", "").split("\n")[0].strip()
+        fn = tool.get("function", {})
+        name = fn.get("name") or tool.get("name", "")
+        desc = (fn.get("description") or tool.get("description", "")).split("\n")[0].strip()
         if name:
             prompt += f"  - {name}: {desc}\n" if desc else f"  - {name}\n"
 

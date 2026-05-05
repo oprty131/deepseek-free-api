@@ -54,11 +54,13 @@ def build_tool_prompt(tools: List[Dict[str, Any]]) -> str:
 # ─── 提取工具名列表 ──────────────────────────────────────────
 
 def get_tool_names(tools: List[Dict[str, Any]]) -> List[str]:
-    """从 tools 列表提取所有 function name。"""
+    """从 tools 列表提取所有 function name。
+    兼容两种格式：Chat Completions (tool.function.name) 和 Responses API (tool.name)。
+    """
     names = []
     for tool in tools or []:
-        fn = tool.get("function", tool)
-        name = fn.get("name", None)
+        fn = tool.get("function", {})
+        name = fn.get("name") or tool.get("name")
         if name:
             names.append(str(name))
     return names
