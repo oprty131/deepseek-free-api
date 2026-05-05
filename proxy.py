@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 import tiktoken
 from curl_cffi import requests as cffi_requests
+from anthropic_adapter import convert_request as anthropic_convert_request, convert_response as anthropic_convert_response, stream_response as anthropic_stream_response, nonstream_to_sse as anthropic_nonstream_to_sse, error_response as anthropic_error_response, count_tokens as anthropic_count_tokens, store_message as anthropic_store_message, get_message as anthropic_get_message, get_message_or_error as anthropic_get_message_or_error, create_batch as anthropic_create_batch, get_batch as anthropic_get_batch, get_batch_or_error as anthropic_get_batch_or_error, list_batches as anthropic_list_batches, cancel_batch as anthropic_cancel_batch, get_batch_results as anthropic_get_batch_results, delete_batch as anthropic_delete_batch, process_batch_requests as anthropic_process_batch_requests, init_batch_storage as anthropic_init_batch_storage
 
 # ── Tokenizer ───────────────────────────────────
 _enc = tiktoken.get_encoding("cl100k_base")
@@ -3347,6 +3348,157 @@ async def delete_response(response_id: str):
         raise HTTPException(404, detail={"error": {"message": f"response {response_id} not found", "type": "invalid_request_error"}})
     return {"id": response_id, "object": "response", "deleted": True}
 
+# ── Anthropic Messages API 兼容端点 ────────────────────────────────────
+
+@app.post("/v1/messages")
+async def anthropic_messages(request: Request):
+    """Anthropic Messages API 兼容端点（main 分支，支持工具调用）"""
+    body = await request.json()
+    model = body.get("model", "deepseek-default")
+
+    openai_body = anthropic_convert_request(body)
+    messages = openai_body.get("messages", [])
+    tools = openai_body.get("tools", None)
+    stream = openai_body.get("stream", False)
+    has_tools = bool(tools)
+
+    cfg = json.loads(CONFIG_FILE.read_text("utf-8"))
+    model_info = get_models().get(model, get_models().get("deepseek-default"))
+    if not model_info:
+        raise HTTPException(status_code=400, detail=anthropic_error_response(f"Unknown model: {model}"))
+    thinking_enabled, search_enabled, _, _ = model_info
+
+    prompt = _convert_messages_for_deepseek(messages)
+    prompt_tokens = _count_tokens(prompt)
+
+    if needs_renewal():
+        try:
+            token = cfg.get("token", "")
+            if token:
+                auth_h = {**cfg.get("headers", {}), "authorization": f"Bearer {token}"}
+                sess_resp = cffi_requests.post("https://chat.deepseek.com/api/v0/chat_session/create", json={}, headers=auth_h, impersonate="chrome120", timeout=15)
+                if sess_resp.status_code == 200:
+                    biz = sess_resp.json().get("data", {}).get("biz_data", {})
+                    new_sid = biz.get("chat_session", {}).get("id", "") or biz.get("id", "")
+                    if new_sid:
+                        cfg = dict(cfg); cfg["session_id"] = new_sid
+                        CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
+                        on_new_session("default", new_sid, model)
+        except Exception as e:
+            _vlog(f"Session renewal failed: {e}")
+
+    msg_id = f"msg_{uuid.uuid4().hex[:24]}"
+
+    if stream:
+        result = _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream=True, is_retry=False, has_tools=has_tools, tools=tools, ref_file_ids=[])
+
+        async def _anthropic_stream_wrapper():
+            orig_iter = result.body_iterator
+
+            async def _openai_gen():
+                async for chunk in orig_iter:
+                    yield chunk
+
+            async for event in anthropic_stream_response(_openai_gen(), model, msg_id, has_tools=has_tools):
+                yield event
+
+            add_usage(model, prompt_tokens, 0)
+            add_tokens("default", cfg.get("session_id", ""), prompt_tokens)
+
+        return StreamingResponse(_anthropic_stream_wrapper(), media_type="text/event-stream", headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
+    else:
+        result = _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream=False, is_retry=False, has_tools=has_tools, tools=tools, ref_file_ids=[])
+
+        add_usage(model, prompt_tokens, 0)
+        add_tokens("default", cfg.get("session_id", ""), prompt_tokens)
+
+        if isinstance(result, JSONResponse):
+            openai_body_resp = json.loads(result.body)
+        elif isinstance(result, dict):
+            openai_body_resp = result
+        else:
+            raise HTTPException(status_code=500, detail=anthropic_error_response("Internal error"))
+
+        anthropic_resp = anthropic_convert_response(openai_body_resp, model, msg_id)
+        return anthropic_resp
+
+
+@app.get("/v1/messages/{message_id}")
+async def anthropic_get_msg_ep(message_id: str):
+    msg = anthropic_get_message(message_id)
+    if msg is None:
+        raise HTTPException(status_code=404, detail=anthropic_error_response(f"Message {message_id} not found", "not_found_error"))
+    return msg
+
+
+@app.post("/v1/messages/count_tokens")
+async def anthropic_count_tokens_ep(request: Request):
+    body = await request.json()
+    return anthropic_count_tokens(body, _enc)
+
+
+@app.post("/v1/messages/batches")
+async def anthropic_create_batch_ep(request: Request):
+    body = await request.json()
+    requests_data = body.get("requests", [])
+    model = body.get("model", "deepseek-default")
+    batch = anthropic_create_batch(requests_data, model)
+
+    async def _process_one(req):
+        ob = anthropic_convert_request(req.get("body", {}))
+        msgs = ob.get("messages", [])
+        cfg = json.loads(CONFIG_FILE.read_text("utf-8"))
+        mi = get_models().get(req.get("body", {}).get("model", model), get_models().get("deepseek-default"))
+        if not mi:
+            return anthropic_error_response("Unknown model")
+        te, se, _, _ = mi
+        pr = _convert_messages_for_deepseek(msgs)
+        r = _do_chat(cfg, pr, model, te, se, stream=False, is_retry=False, has_tools=False, tools=None, ref_file_ids=[])
+        if isinstance(r, JSONResponse):
+            return json.loads(r.body)
+        return r
+
+    asyncio.create_task(anthropic_process_batch_requests(batch["id"], _process_one))
+    return batch
+
+
+@app.get("/v1/messages/batches")
+async def anthropic_list_batches_ep(request: Request, status: str = None, limit: int = 20, after_id: str = None):
+    return anthropic_list_batches(status, min(limit, 100), after_id)
+
+
+@app.get("/v1/messages/batches/{batch_id}")
+async def anthropic_get_batch_ep(batch_id: str):
+    b = anthropic_get_batch(batch_id)
+    if b is None:
+        raise HTTPException(status_code=404, detail=anthropic_error_response(f"Batch {batch_id} not found", "not_found_error"))
+    return b
+
+
+@app.post("/v1/messages/batches/{batch_id}/cancel")
+async def anthropic_cancel_batch_ep(batch_id: str):
+    b = anthropic_cancel_batch(batch_id)
+    if b is None:
+        raise HTTPException(status_code=404, detail=anthropic_error_response(f"Batch {batch_id} not found", "not_found_error"))
+    return b
+
+
+@app.get("/v1/messages/batches/{batch_id}/results")
+async def anthropic_batch_results_ep(batch_id: str):
+    results = anthropic_get_batch_results(batch_id)
+    if results is None:
+        raise HTTPException(status_code=404, detail=anthropic_error_response(f"Results for batch {batch_id} not found", "not_found_error"))
+    return StreamingResponse(
+        iter([json.dumps(r, ensure_ascii=False) + "\\n" for r in results]),
+        media_type="application/jsonl",
+        headers={"Content-Disposition": f"attachment; filename={batch_id}_results.jsonl"})
+
+
+@app.delete("/v1/messages/batches/{batch_id}")
+async def anthropic_delete_batch_ep(batch_id: str):
+    anthropic_delete_batch(batch_id)
+    return {"id": batch_id, "type": "message_batch_deleted", "object": "message_batch"}
+
 
 def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_retry=False, has_tools=False, tools=None, ref_file_ids=None):
     """核心聊天逻辑，支持 token 过期后重试
@@ -3878,6 +4030,9 @@ def _do_chat_stream_only(cfg, prompt, model, thinking_enabled, search_enabled, h
 
 # ── 启动 ─────────────────────────────────────────────────
 if __name__ == "__main__":
+    import os as _anthropic_os
     import uvicorn
+    anthropic_init_batch_storage(_anthropic_os.path.join(_anthropic_os.path.dirname(_anthropic_os.path.abspath(__file__)), ".anthropic_batches"))
+    print(f" Anthropic: /v1/messages, /v1/messages/count_tokens, /v1/messages/batches, /v1/messages/{{id}}")
     print(f"DeepSeek Proxy\n Admin: http://localhost:{PROXY_PORT}/admin\n API: http://localhost:{PROXY_PORT}/v1")
     uvicorn.run(app, host="0.0.0.0", port=PROXY_PORT, log_level="info")
