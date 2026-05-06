@@ -2253,7 +2253,7 @@ def relogin(cfg: dict) -> dict | None:
         return None
 
     login_payload = {"password": password, "device_id": secrets.token_hex(16), "os": "web"}
-    account_label = cfg.get("account", "")
+    account_label = cfg.get("account_label", "") or cfg.get("account", "")
 
     if login_type == "email":
         email = cfg.get("_email", "")
@@ -3903,6 +3903,10 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                     for chunk in _do_chat_stream_only(new_cfg, prompt, model, thinking_enabled, search_enabled, has_tools, tools, ref_file_ids):
                         yield chunk
                     return
+                else:
+                    al = cfg.get("account_label", "") or cfg.get("account", "")
+                    if al:
+                        config_manager.update_account(al, is_valid=False)
                 yield f'data: {json.dumps({"error": {"message": "Token expired", "type": "auth_error", "code": 401}})}\n\n'
                 yield "data: [DONE]\n\n"
                 return
@@ -4069,6 +4073,10 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 new_cfg = relogin(cfg)
                 if new_cfg:
                     return _do_chat(new_cfg, prompt, model, thinking_enabled, search_enabled, False, is_retry=True, has_tools=has_tools, tools=tools, ref_file_ids=ref_file_ids)
+                else:
+                    al = cfg.get("account_label", "") or cfg.get("account", "")
+                    if al:
+                        config_manager.update_account(al, is_valid=False)
 
             if resp.status_code != 200:
                 body_sample = ""
