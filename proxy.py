@@ -42,7 +42,10 @@ from pow_native import DeepSeekPOW
 pow_solver = DeepSeekPOW()
 
 BASE_DIR = Path(__file__).parent
-CONFIG_FILE = BASE_DIR / "token.json"
+CONFIG_FILE = BASE_DIR / "config.json"
+
+# 多账号管理
+from app.config import config_manager, DsAccount
 VISION_LOG = BASE_DIR / "vision.log"
 _DEBUG = os.getenv("DS_DEBUG", "").lower() in ("1", "true", "yes")
 
@@ -1533,6 +1536,25 @@ a{color:#7dd3fc}
 .collapse{cursor:pointer;user-select:none;color:#64748b;font-size:12px;margin-top:8px}
 .collapse:hover{color:#94a3b8}
 .curl-box{display:none;margin-top:10px}
+/* Account management */
+.acct-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+.acct-tbl th,.acct-tbl td{padding:8px 10px;text-align:left;border-bottom:1px solid #334155}
+.acct-tbl th{color:#94a3b8;font-weight:500;font-size:11px;white-space:nowrap}
+.acct-tbl td{font-variant-numeric:tabular-nums}
+.acct-st{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+.acct-st.ok{background:#22c55e}.acct-st.no{background:#64748b}.acct-st.er{background:#ef4444}
+.acct-btn{padding:4px 10px;border-radius:4px;border:none;cursor:pointer;font-size:12px;font-weight:500}
+.acct-btn.rm{background:#7f1d1d;color:#fca5a5}.acct-btn.rm:hover{background:#991b1b}
+.acct-btn.rl{background:#1e3a5f;color:#7dd3fc}.acct-btn.rl:hover{background:#1e40af}
+.acct-btn.batch{background:#2563eb;color:#fff;width:100%;margin-top:12px;padding:10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500}
+.acct-btn.batch:hover{background:#1d4ed8}
+.acct-add{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.acct-add input{flex:1;min-width:100px;padding:8px 10px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:13px}
+.acct-add select{padding:8px 10px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:13px}
+.acct-add button{padding:8px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500}
+.acct-add button:hover{background:#1d4ed8}
+.acct-empty{text-align:center;color:#64748b;padding:30px 0;font-size:13px}
+.acct-stat{font-size:12px;color:#94a3b8;margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -1544,6 +1566,7 @@ a{color:#7dd3fc}
 <div class="tab active" onclick="switchTab('phone')">手机号登录</div>
 <div class="tab" onclick="switchTab('email')">邮箱登录</div>
 <div class="tab" onclick="switchTab('usage')">用量统计</div>
+<div class="tab" onclick="switchTab('accounts')">账号管理</div>
 </div>
 
 <div id="phonePanel" class="panel active">
@@ -1595,18 +1618,32 @@ a{color:#7dd3fc}
 <button class="btn" style="background:#7f1d1d;color:#fca5a5;font-size:12px;padding:6px 12px;margin-left:4px" onclick="clearUsage()">清空</button>
 </div>
 </div>
+
+<div id="accountsPanel" class="panel">
+<div class="acct-stat" id="acctStat">加载中...</div>
+<div class="acct-add">
+<input type="tel" id="acctPhone" placeholder="手机号" style="flex:2;min-width:120px">
+<input type="text" id="acctCode" value="+86" placeholder="+86" style="width:70px;flex:0">
+<input type="password" id="acctPw" placeholder="密码" style="flex:1">
+<button onclick="addAccount()">添加</button>
+</div>
+<div id="acctList"><div class="acct-empty">暂无账号，请先添加</div></div>
+<button class="acct-btn batch" onclick="reloginAll()">全部重新登录</button>
+</div>
 </div>
 <div id="toast" class="toast"></div>
 <script>
 function Q(id){return document.getElementById(id)}
 function switchTab(type){
-var ti={'phone':0,'email':1,'usage':2};
+var ti={'phone':0,'email':1,'usage':2,'accounts':3};
 document.querySelectorAll('.tab').forEach((t,i)=>{t.className='tab'+(i===ti[type]?' active':'')});
 Q('phonePanel').className='panel'+(type==='phone'?' active':'');
 Q('emailPanel').className='panel'+(type==='email'?' active':'');
 if(Q('usagePanel'))Q('usagePanel').className='panel'+(type==='usage'?' active':'');
+if(Q('accountsPanel'))Q('accountsPanel').className='panel'+(type==='accounts'?' active':'');
 var as=Q('apiSection');if(as)as.style.display=type==='usage'?'none':'';
 if(type==='usage')loadUsage();
+if(type==='accounts')loadAccounts();
 }
 async function cs(){
 try{const r=await fetch('/api/config');const d=await r.json()
@@ -1663,6 +1700,71 @@ info.style.display='block';info.innerHTML='✅ 发现 '+d.data.length+' 个模�
 }catch(e){info.style.display='block';info.innerHTML='❌ 失败: '+e.message;t('刷新失败',1)}
 btn.disabled=false;btn.textContent='🔄 刷新模型列表'
 }
+// === 账号管理 ===
+async function loadAccounts(){
+try{
+const r=await fetch('/api/accounts');const d=await r.json();
+var h='';
+if(d.accounts&&d.accounts.length>0){
+h+='<div class="acct-stat">共 '+d.total+' 个账号，'+d.valid+' 个有效</div>';
+h+='<table class="acct-tbl"><tr><th>账号</th><th>状态</th><th>Token</th><th>登录时间</th><th>操作</th></tr>';
+for(var a of d.accounts){
+var st=a.is_valid?'ok':'no';
+var stT=a.is_valid?'有效':'未登录';
+var l=encodeURIComponent(a.account_label);
+h+='<tr><td>'+a.account_label+'</td><td><span class="acct-st '+st+'"></span>'+stT+'</td><td>'+(a.token_masked||'***')+'</td><td>'+(a.login_time||'-')+'</td>';
+h+='<td><button class="acct-btn rl" onclick="reloginAccount(\''+l+'\')">重登</button> ';
+h+='<button class="acct-btn rm" onclick="removeAccount(\''+l+'\')">删除</button></td></tr>';
+}
+h+='</table>';
+}else{h='<div class="acct-empty">暂无账号，请在上方添加</div>'}
+Q('acctList').innerHTML=h;
+}catch(e){Q('acctList').innerHTML='<div class="acct-empty">加载失败: '+e.message+'</div>'}
+}
+async function addAccount(){
+var phone=Q('acctPhone').value.trim();
+var code=Q('acctCode').value.trim()||'+86';
+var pw=Q('acctPw').value;
+if(!phone||!pw){t('请输入手机号和密码',1);return}
+try{
+var r=await fetch('/api/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mobile:phone,area_code:code,password:pw,login_type:'phone'})});
+var d=await r.json();
+if(d.ok){t('已添加，需登录获取token');Q('acctPhone').value='';Q('acctPw').value='';loadAccounts()}
+else{t('失败: '+(d.error||'未知错误'),1)}
+}catch(e){t('添加失败: '+e.message,1)}
+}
+async function removeAccount(label){
+if(!confirm('确定删除账号 '+decodeURIComponent(label)+'？'))return;
+try{
+var r=await fetch('/api/accounts/'+label,{method:'DELETE'});
+var d=await r.json();
+if(d.ok){t('已删除');loadAccounts()}
+else{t('删除失败: '+(d.error||'未知错误'),1)}
+}catch(e){t('删除失败: '+e.message,1)}
+}
+async function reloginAccount(label){
+var btn=event&&event.target;if(btn){btn.disabled=true;btn.textContent='...'}
+try{
+var r=await fetch('/api/accounts/'+label+'/relogin',{method:'POST'});
+var d=await r.json();
+if(d.ok){t('重新登录成功');loadAccounts()}
+else{t('重登失败: '+(d.error||'未知错误'),1)}
+}catch(e){t('重登失败: '+e.message,1)}
+if(btn){btn.disabled=false;btn.textContent='重登'}
+}
+async function reloginAll(){
+var btn=event&&event.target;if(btn){btn.disabled=true;btn.textContent='登录中...'}
+try{
+var r=await fetch('/api/accounts/relogin-all',{method:'POST'});
+var d=await r.json();
+if(d.results){
+var ok=d.results.filter(x=>x.ok).length;
+t('重登完成: '+ok+'/'+d.total+' 成功');
+loadAccounts();
+}else{t('失败: '+(d.error||'未知'),1)}
+}catch(e){t('重登失败: '+e.message,1)}
+if(btn){btn.disabled=false;btn.textContent='全部重新登录'}
+}
 // === 用量统计 ===
 var _up='total';
 function f(n){return n.toLocaleString()}
@@ -1714,22 +1816,31 @@ async def admin():
 # ── 配置 API ─────────────────────────────────────────────
 
 def _load_config_sync() -> dict:
-    """同步加载 token.json 原始数据（供非 async 上下文使用）。"""
-    if not CONFIG_FILE.exists():
+    """同步加载配置信息（兼容旧接口）。多账号模式下取第一个有效账号。"""
+    accounts = config_manager.get_all_accounts()
+    if not accounts:
         return {}
-    return json.loads(CONFIG_FILE.read_text("utf-8"))
+    first = accounts[0]
+    return {
+        "configured": True,
+        "masked": first.get("token_masked", "***"),
+        "session_id": first.get("session_id", "N/A"),
+        "accounts": accounts,
+    }
 
 
 @app.get("/api/config")
 async def get_config():
-    if not CONFIG_FILE.exists():
+    accounts = config_manager.get_all_accounts()
+    if not accounts:
         return {"configured": False, "error": "未配置"}
-    d = _load_config_sync()
-    t = d.get("token", "")
+    first = accounts[0]
     return {
         "configured": True,
-        "masked": t[:20] + "..." + t[-8:] if len(t) > 30 else "***",
-        "session_id": d.get("session_id", "N/A"),
+        "masked": first.get("token_masked", "***"),
+        "session_id": first.get("session_id", "N/A"),
+        "account_count": len(accounts),
+        "valid_count": config_manager.count_valid(),
     }
 
 
@@ -1741,9 +1852,21 @@ async def save_config(data: dict):
     cfg = build_config(parsed)
     if not cfg["token"]: return {"ok": False, "error": "未从 cURL 提取到 Token，请确认 Authorization header"}
     if not cfg["session_id"]: return {"ok": False, "error": "未从 cURL 提取到 Session ID"}
-    CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False), "utf-8")
+    # 创建账号并加入池
+    account_label = f"curl_import_{cfg['token'][:8]}"
+    ds_account = DsAccount(
+        account_label=account_label,
+        login_type="phone",
+        token=cfg["token"],
+        session_id=cfg["session_id"],
+        headers=cfg.get("headers", {}),
+        cookie=cfg.get("cookie", ""),
+        login_time=time.strftime("%Y-%m-%d %H:%M:%S"),
+        is_valid=True,
+    )
+    config_manager.add_account(ds_account)
     t = cfg["token"]
-    return {"ok": True, "masked": t[:20] + "..." + t[-8:], "session_id": cfg["session_id"]}
+    return {"ok": True, "masked": t[:20] + "..." + t[-8:], "session_id": cfg["session_id"], "account_label": account_label}
 
 
 # ── DeepSeek 登录 API ─────────────────────────────────────
@@ -1846,7 +1969,21 @@ async def deepseek_login(data: dict):
             "_mobile": mobile if login_type == "phone" else "",
             "_area_code": area_code if login_type == "phone" else "+86",
         }
-        CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False), "utf-8")
+        # 添加到多账号池
+        ds_account = DsAccount(
+            account_label=account_label,
+            login_type=login_type,
+            _password=password,
+            _mobile=mobile if login_type == "phone" else "",
+            _area_code=area_code if login_type == "phone" else "+86",
+            _email=email if login_type == "email" else "",
+            token=token,
+            session_id=session_id,
+            headers={**DS_HEADERS, "authorization": f"Bearer {token}"},
+            login_time=time.strftime("%Y-%m-%d %H:%M:%S"),
+            is_valid=True,
+        )
+        config_manager.add_account(ds_account)
 
         masked = token[:20] + "..." + token[-8:]
         return {"ok": True, "masked": masked, "session_id": session_id}
@@ -1859,8 +1996,127 @@ async def deepseek_login(data: dict):
 # ── Health ───────────────────────────────────────────────
 @app.get("/health")
 async def health():
-    if CONFIG_FILE.exists(): return {"status": "ok", "configured": True}
-    return {"status": "waiting", "configured": False}
+    valid = config_manager.count_valid()
+    total = config_manager.count()
+    return {"status": "ok" if valid else "waiting", "configured": valid > 0, "accounts": total, "valid": valid}
+
+
+# ─── 账号管理 API ───────────────────────────────────────────
+
+@app.get("/api/accounts")
+async def list_accounts():
+    """获取所有账号列表"""
+    return {
+        "accounts": config_manager.get_all_accounts(),
+        "total": config_manager.count(),
+        "valid": config_manager.count_valid(),
+    }
+
+
+@app.post("/api/accounts")
+async def add_account(data: dict):
+    """手动添加账号"""
+    login_type = data.get("login_type", "phone")
+    password = data.get("password", "").strip()
+    if not password:
+        raise HTTPException(400, "请提供密码")
+
+    if login_type == "email":
+        email = data.get("email", "").strip()
+        if not email:
+            raise HTTPException(400, "请提供邮箱")
+        account_label = email
+    else:
+        mobile = data.get("mobile", "").strip()
+        area_code = data.get("area_code", "+86").strip()
+        if not mobile:
+            raise HTTPException(400, "请提供手机号")
+        account_label = f"{area_code} {mobile}"
+
+    existing = config_manager.get_account_by_label(account_label)
+    if existing:
+        if not existing.token:
+            pass
+        else:
+            return {"ok": True, "account_label": account_label, "exist": True}
+
+    ds_account = DsAccount(
+        account_label=account_label,
+        login_type=login_type,
+        _password=password,
+        _mobile=mobile if login_type == "phone" else "",
+        _area_code=area_code if login_type == "phone" else "+86",
+        _email=email if login_type == "email" else "",
+        login_time="",
+        is_valid=False,
+    )
+    added = config_manager.add_account(ds_account)
+    return {"ok": True, "account_label": account_label, "added": added}
+
+
+@app.delete("/api/accounts/{account_label}")
+async def remove_account(account_label: str):
+    """删除账号"""
+    from urllib.parse import unquote
+    label = unquote(account_label)
+    if config_manager.remove_account(label):
+        return {"ok": True, "account_label": label}
+    raise HTTPException(404, f"账号 {label} 不存在")
+
+
+@app.post("/api/accounts/{account_label}/relogin")
+async def relogin_account(account_label: str):
+    """重新登录指定账号"""
+    from urllib.parse import unquote
+    label = unquote(account_label)
+    account = config_manager.get_account_by_label(label)
+    if not account:
+        raise HTTPException(404, f"账号 {label} 不存在")
+
+    login_type = account.login_type
+    password = account._password
+    if not password:
+        raise HTTPException(400, f"账号 {label} 无保存密码，无法自动登录")
+
+    cfg = {
+        "login_type": login_type,
+        "_password": password,
+        "_email": account._email,
+        "_mobile": account._mobile,
+        "_area_code": account._area_code,
+        "account": label,
+    }
+
+    new_cfg = relogin(cfg)
+    if new_cfg:
+        return {"ok": True, "account_label": label, "token_masked": new_cfg.get("token", "")[:20] + "..."}
+    return {"ok": False, "error": "重新登录失败"}
+
+
+@app.post("/api/accounts/relogin-all")
+async def relogin_all():
+    """重新登录所有有效账号"""
+    accounts = config_manager.get_all_accounts()
+    results = []
+    for acc in accounts:
+        label = acc.get("account_label", "")
+        account = config_manager.get_account_by_label(label)
+        if not account or not account._password:
+            results.append({"label": label, "ok": False, "error": "无密码"})
+            continue
+
+        cfg = {
+            "login_type": account.login_type,
+            "_password": account._password,
+            "_email": account._email,
+            "_mobile": account._mobile,
+            "_area_code": account._area_code,
+            "account": label,
+        }
+        new_cfg = relogin(cfg)
+        results.append({"label": label, "ok": bool(new_cfg), "error": None if new_cfg else "登录失败"})
+
+    return {"results": results, "total": len(results), "success": sum(1 for r in results if r["ok"])}
 
 
 # ─── 用量统计 API ─────────────────────────────────────────────
@@ -2088,7 +2344,11 @@ def relogin(cfg: dict) -> dict | None:
             "_mobile": cfg.get("_mobile", ""),
             "_area_code": cfg.get("_area_code", "+86"),
         }
-        CONFIG_FILE.write_text(json.dumps(new_cfg, ensure_ascii=False), "utf-8")
+        # 更新多账号池
+        config_manager.update_account(account_label,
+            token=token, session_id=session_id,
+            headers={**DS_HEADERS, "authorization": f"Bearer {token}"},
+            is_valid=True, login_time=time.strftime("%Y-%m-%d %H:%M:%S"))
         return new_cfg
 
     except Exception as e:
@@ -2097,11 +2357,16 @@ def relogin(cfg: dict) -> dict | None:
 
 
 def load_config_with_refresh() -> dict:
-    """加载配置，如果 token 失效则自动刷新"""
-    if not CONFIG_FILE.exists():
+    """加载配置，如果 token 失效则自动刷新（多账号模式：返回第一个有效账号）"""
+    accounts = config_manager.get_all_accounts()
+    if not accounts:
         return {}
-    cfg = json.loads(CONFIG_FILE.read_text("utf-8"))
-    return cfg
+    first = accounts[0]
+    return {
+        "token": first.get("token", ""),
+        "session_id": first.get("session_id", ""),
+        "configured": True,
+    }
 
 
 # ── OpenAI 兼容 API ──────────────────────────────────────
@@ -2172,10 +2437,19 @@ def build_request_headers(cfg: dict, session_id: str) -> dict:
     return req_headers
 
 
-def get_pow_response(target_path: str = "/api/v0/chat/completion") -> str | None:
+def get_pow_response(target_path: str = "/api/v0/chat/completion",
+                      cfg: dict | None = None) -> str | None:
     """Get fresh PoW response from DeepSeek."""
     try:
-        cfg = json.loads(CONFIG_FILE.read_text("utf-8"))
+        if cfg is None:
+            account = config_manager.get_next_account()
+            if not account:
+                return None
+            cfg = {
+                "token": account.token,
+                "session_id": account.session_id,
+                "headers": dict(account.headers),
+            }
         headers = build_request_headers(cfg, cfg["session_id"])
 
         resp = cffi_requests.post(
@@ -2203,16 +2477,23 @@ def get_pow_response(target_path: str = "/api/v0/chat/completion") -> str | None
 
 # ── 文件上传（Vision 模型支持）──────────────────────────────
 
-def upload_file_to_deepseek(file_data: bytes, filename: str, content_type: str = "image/png") -> str | None:
+def upload_file_to_deepseek(file_data: bytes, filename: str, content_type: str = "image/png",
+                             cfg: dict | None = None) -> str | None:
     """Upload a file to DeepSeek and return the file_id.
 
     Uses the /api/v0/file/upload_file endpoint with PoW authentication.
     Returns file_id string or None on failure.
     """
-    if not CONFIG_FILE.exists():
-        _vlog("upload: no config")
-        return None
-    cfg = json.loads(CONFIG_FILE.read_text("utf-8"))
+    if cfg is None:
+        account = config_manager.get_next_account()
+        if not account:
+            _vlog("upload: no account available")
+            return None
+        cfg = {
+            "token": account.token,
+            "session_id": account.session_id,
+            "headers": dict(account.headers),
+        }
     session_id = cfg["session_id"]
 
     # Get PoW for upload_file scene
@@ -2476,8 +2757,10 @@ def _parse_image_url(url_or_data: str) -> dict | None:
 
 @app.post("/v1/chat/completions")
 async def chat(request: Request):
-    if not CONFIG_FILE.exists():
-        raise HTTPException(503, detail="请先访问 http://localhost:{}/admin 登录账号".format(PROXY_PORT))
+    # 多账号：获取下一个可用账号
+    account = config_manager.get_next_account()
+    if not account:
+        raise HTTPException(503, detail="没有可用账号，请先访问 /admin 添加并登录账号")
 
     body = await request.json()
     messages = body.get("messages", [])
@@ -2495,7 +2778,14 @@ async def chat(request: Request):
     model_info = get_models().get(model, get_models().get("deepseek-default"))
     thinking_enabled, search_enabled, _, _ = model_info
 
-    cfg = json.loads(CONFIG_FILE.read_text("utf-8"))
+    cfg = {
+        "token": account.token,
+        "session_id": account.session_id,
+        "headers": dict(account.headers),
+        "cookie": account.cookie,
+        "account_label": account.account_label,
+    }
+    account_label = account.account_label
     ref_file_ids = []
     import time as _vtime
 
@@ -2507,7 +2797,7 @@ async def chat(request: Request):
         raw_ids = []
         for i, tf in enumerate(text_files):
             _t1 = _vtime.time()
-            orig_fid = upload_file_to_deepseek(tf["data"], tf["filename"], tf["content_type"])
+            orig_fid = upload_file_to_deepseek(tf["data"], tf["filename"], tf["content_type"], cfg=cfg)
             _vlog(f"text_upload #{i} -> {orig_fid} ({_vtime.time()-_t1:.1f}s)")
             if orig_fid:
                 raw_ids.append(orig_fid)
@@ -2525,7 +2815,7 @@ async def chat(request: Request):
         _vlog(f"extracted {len(images)} images ({_vtime.time()-_t0:.1f}s)")
         for i, img in enumerate(images):
             _t1 = _vtime.time()
-            orig_fid = upload_file_to_deepseek(img["data"], img["filename"], img["content_type"])
+            orig_fid = upload_file_to_deepseek(img["data"], img["filename"], img["content_type"], cfg=cfg)
             _vlog(f"upload #{i} -> {orig_fid} ({_vtime.time()-_t1:.1f}s)")
             if orig_fid:
                 _t2 = _vtime.time()
@@ -2563,9 +2853,9 @@ async def chat(request: Request):
     prompt_tokens = _count_tokens(prompt)
 
     # 会话管理：token 超限时自动建新 DeepSeek session
-    if needs_renewal():
-        status = get_usage_status()
-        print(f"[Session] Tokens {status['prompt_tokens']}/{status['threshold']} exceeded, creating new session...")
+    if needs_renewal(account_label):
+        status = get_usage_status(account_label)
+        print(f"[Session] {account_label} tokens {status['prompt_tokens']}/{status['threshold']} exceeded, creating new session...")
         try:
             token = cfg.get("token", "")
             if token:
@@ -2579,9 +2869,9 @@ async def chat(request: Request):
                     if new_sid:
                         cfg = dict(cfg)
                         cfg["session_id"] = new_sid
-                        CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
-                        on_new_session("default", new_sid, model)
-                        print(f"[Session] New session: {new_sid}")
+                        config_manager.update_account(account_label, session_id=new_sid)
+                        on_new_session(account_label, new_sid, model)
+                        print(f"[Session] {account_label} new session: {new_sid}")
         except Exception as e:
             print(f"[Session] Failed to create new session: {e}")
 
@@ -2624,18 +2914,19 @@ async def chat(request: Request):
                     except: pass
                 yield chunk
             add_usage(model, prompt_tokens, _count_tokens(completion_text))
-            add_tokens("default", cfg.get("session_id", ""), prompt_tokens)
+            add_tokens(account_label, cfg.get("session_id", ""), prompt_tokens)
         result.body_iterator = _counted_stream()
     else:
         add_usage(model, prompt_tokens, 0)
-        add_tokens("default", cfg.get("session_id", ""), prompt_tokens)
+        add_tokens(account_label, cfg.get("session_id", ""), prompt_tokens)
     return result
 
 
 @app.post("/v1/responses")
 async def responses(request: Request):
-    if not CONFIG_FILE.exists():
-        raise HTTPException(503, detail="请先访问 http://localhost:{}/admin 登录账号".format(PROXY_PORT))
+    account = config_manager.get_next_account()
+    if not account:
+        raise HTTPException(503, detail="没有可用账号，请先访问 /admin 添加并登录账号")
 
     body = await request.json()
     model = _resolve_responses_model(body)
