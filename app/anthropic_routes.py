@@ -113,16 +113,6 @@ async def anthropic_messages(request: Request):
             _vlog(f"vision fresh session failed: {e}")
 
     prompt = convert_messages_for_deepseek(messages, tools)
-    # 注入工具定义到 prompt 中
-    if tools:
-        from proxy import build_tool_prompt
-        tool_prompt_text = build_tool_prompt(tools)
-        if tool_prompt_text:
-            last_user_idx = prompt.rfind("<｜User｜>")
-            if last_user_idx >= 0:
-                prompt = prompt[:last_user_idx] + tool_prompt_text + "\n" + prompt[last_user_idx:]
-            else:
-                prompt = tool_prompt_text + "\n" + prompt
     prompt_tokens = _count_tokens(prompt)
 
     # 会话管理：token 超限自动续期

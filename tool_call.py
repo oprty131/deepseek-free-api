@@ -198,12 +198,21 @@ def convert_messages_for_deepseek(messages, tools=None):
 
     parts = [BOS]
     last_role = ""
+    has_system = False
     for msg in messages:
         role = msg.get("role", "")
         content = msg.get("content", "")
 
         if role == "system":
+            has_system = True
             text = str(content) if content else ""
+            if tools:
+                tool_text = build_dsml_tool_prompt(tools)
+                if tool_text:
+                    if text.strip():
+                        text = text + "\n\n" + tool_text
+                    else:
+                        text = tool_text
             if text.strip():
                 parts.append(SYS + text + SYS_END)
             last_role = "system"
@@ -251,6 +260,12 @@ def convert_messages_for_deepseek(messages, tools=None):
                     pass
                 parts.append(TOOL + result[:500] + TOOL_END)
             last_role = "tool"
+
+    # 如果没有 system 消息但有 tools，将 tool prompt 作为 system 消息插入
+    if tools and not has_system:
+        tool_text = build_dsml_tool_prompt(tools)
+        if tool_text:
+            parts.insert(1, SYS + tool_text + SYS_END)
 
     # 确保最后是 Assistant 开头
     if last_role != "assistant":

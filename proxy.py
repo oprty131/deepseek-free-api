@@ -25,7 +25,6 @@ from response_store import save_response_record, get_response_record, delete_res
 
 # ── 工具调用处理模块 ─────────────────────────────────
 from tool_call import (
-    build_tool_prompt,
     extract_tool_call,
     get_tool_names,
     convert_messages_for_deepseek,
@@ -2871,16 +2870,6 @@ async def chat(request: Request):
                         print(f"[Session] {account_label} new session: {new_sid}")
         except Exception as e:
             print(f"[Session] Failed to create new session: {e}")
-
-    # 如果有 tools 定义，将工具提示词注入到最后一个 USER 标记之前
-    tool_prompt = build_tool_prompt(tools) if tools else ""
-    if tool_prompt:
-        # 原生格式：找最后一个 <｜User｜>
-        last_user_idx = prompt.rfind("<｜User｜>")
-        if last_user_idx != -1:
-            prompt = prompt[:last_user_idx] + tool_prompt + "\n" + prompt[last_user_idx:]
-        else:
-            prompt = tool_prompt + "\n" + prompt
 
     has_tools = bool(tools)
 
