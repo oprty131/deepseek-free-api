@@ -405,3 +405,43 @@ Remember: The ONLY valid way to use tools is the <|DSML|tool_calls>...</|DSML|to
             prompt += f"  - {name}: {desc}\n" if desc else f"  - {name}\n"
 
     return prompt
+
+
+# ─── 泄漏输出清理 ────────────────────────────────────────
+
+# 匹配 DeepSeek BOS 标记（两种形式：ASCII 下划线和 U+2581 变体）
+#   - ASCII underscore: <｜begin_of_sentence｜>
+#   - U+2581 variant:   <｜begin▁of▁sentence｜>
+_LEAKED_BOS_MARKER_PATTERN = re.compile(
+    r"(?i)<[｜\|]\s*begin[_▁]of[_▁]sentence\s*[｜\|]>"
+)
+
+# 匹配剩余的 DeepSeek 特殊标记（两种形式）
+#   - ASCII underscore: <｜end_of_sentence｜>, <｜end_of_toolresults｜>, <｜end_of_instructions｜>
+#   - U+2581 variant:   <｜end▁of▁sentence｜>, <｜end▁of▁toolresults｜>, <｜end▁of▁instructions｜>
+_LEAKED_META_MARKER_PATTERN = re.compile(
+    r"(?i)<[｜\|]\s*(?:assistant|tool|end[_▁]of[_▁]sentence|end[_▁]of[_▁]thinking|end[_▁]of[_▁]toolresults|end[_▁]of[_▁]instructions)\s*[｜\|]>"
+)
+
+
+def sanitize_leaked_output(text: str) -> str:
+    """清理泄漏的 DeepSeek 特殊标记。
+
+    移除模型可能输出的 DSML 对话格式标记，如：
+    - <｜begin_of_sentence｜> / <｜begin▁of▁sentence｜>
+    - <｜end_of_sentence｜> / <｜end▁of▁sentence｜>
+    - <｜tool｜>
+    - <｜assistant｜>
+    - <｜end_of_thinking｜> / <｜end▁of▁thinking｜>
+    - <｜end_of_toolresults｜> / <｜end▁of▁toolresults｜>
+    - <｜end_of_instructions｜> / <｜end▁of▁instructions｜>
+    """
+    if not text:
+        return text
+
+    # 移除 BOS 标记
+    text = _LEAKED_BOS_MARKER_PATTERN.sub("", text)
+    # 移除其他元标记
+    text = _LEAKED_META_MARKER_PATTERN.sub("", text)
+
+    return text

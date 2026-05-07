@@ -32,7 +32,7 @@ from tool_call import (
 
 # ── 流式筛分 + DSML 解析 ────────────────────────────
 from tool_sieve import StreamSieve, SieveEvent
-from tool_dsml import parse_dsml_tool_calls as _parse_dsml
+from tool_dsml import parse_dsml_tool_calls as _parse_dsml, sanitize_leaked_output
 
 # ── PoW (Proof of Work) Solver — 纯 Python 实现（无 WASM 依赖）────────
 from pow_native import DeepSeekPOW
@@ -3950,7 +3950,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                                         yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                                         _role_sent = True
                                     r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                                         "choices": [{"index": 0, "delta": {"content": evt.data}, "finish_reason": None}]}
+                                         "choices": [{"index": 0, "delta": {"content": sanitize_leaked_output(evt.data)}, "finish_reason": None}]}
                                     yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                     elif etype == "thinking":
                         r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
@@ -3974,7 +3974,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                                 yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                                 _role_sent = True
                             r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                                 "choices": [{"index": 0, "delta": {"content": evt.data}, "finish_reason": None}]}
+                                 "choices": [{"index": 0, "delta": {"content": sanitize_leaked_output(evt.data)}, "finish_reason": None}]}
                             yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                     elif evt.type == "tool_calls":
                         _had_tool_calls = True
