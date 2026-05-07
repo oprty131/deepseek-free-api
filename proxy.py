@@ -4016,7 +4016,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 if etype == "content":
                     _stream_content_count += 1
                     r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                         "choices": [{"index": 0, "delta": {"content": val}, "finish_reason": None}]}
+                         "choices": [{"index": 0, "delta": {"content": sanitize_leaked_output(val)}, "finish_reason": None}]}
                     yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                 elif etype == "thinking":
                     _stream_think_count += 1
@@ -4110,6 +4110,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
             _vlog(f"NONSTREAM_CONTENT[:500]: {full_content[:500]}")
 
         # 如果有 tools，检查 content 中是否包含 tool_call 标签
+        full_content = sanitize_leaked_output(full_content)
         finish_reason = "stop"
         tc_result = None
         final_content = full_content
