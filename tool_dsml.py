@@ -443,5 +443,7 @@ def sanitize_leaked_output(text: str) -> str:
     text = _LEAKED_BOS_MARKER_PATTERN.sub("", text)
     # 移除其他元标记
     text = _LEAKED_META_MARKER_PATTERN.sub("", text)
+    # 移除联网搜索引用标记
+    text = re.sub(r"\[citation:\d+\]", "", text)
 
     return text
