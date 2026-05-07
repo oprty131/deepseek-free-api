@@ -4,6 +4,35 @@
 
 ---
 
+## [v2.1.0] — 2026-05-07
+
+### Added
+- **Anthropic 模型名映射** — Claude Code CLI 等工具可使用 Anthropic 风格模型名（如 `claude-sonnet-4-6`），内部自动映射为对应 DeepSeek 模型
+  - `claude-opus-4-6` → `deepseek-expert-reasoner`（最强）
+  - `claude-sonnet-4-6` → `deepseek-reasoner`（均衡）
+  - `claude-haiku-4-5` → `deepseek-default`（快速）
+  - 支持 search / nothinking 变体及 Claude 3.x 历史模型名
+- DeepSeek 原生名（`deepseek-*`）继续直接可用，`/v1/models` 返回不变，不影响其他 OpenAI 兼容客户端
+
+## [v2.0.0] — 2026-05-06
+
+### Added
+- **Anthropic Messages API 全兼容** — 新增 9 个 Anthropic 端点：`/v1/messages`（流式/非流式）、count_tokens、message CRUD、batch 全流程
+- **多账号管理** — Web 面板增删账号、轮询负载均衡、401 自动重登
+- **用量统计** — tiktoken 精确计数 + Web UI（表格/时间筛选）
+- **会话管理** — 900K token 阈值自动续期，多账号独立追踪
+
+### Changed
+- 路由从 `proxy.py` 拆分为 `app/anthropic_routes.py`（APIRouter 模式）
+- `app/anthropic.py` + `app/batch.py` 模块化，两分支共用 batch、分支差异在 anthropic.py
+
+### Fixed
+- 401 重登失败后账号未标记无效（死循环 bug）
+- `relogin()` key 名不一致导致 token 写不回账号池
+- Anthropic 路由：多账号未接入、ref_file_ids 硬编码为空
+- Anthropic 路由：`tool_result` block 遗漏 + 工具定义未注入 prompt
+- 路由顺序：`{message_id}` 在 batch 路由后，避免参数化匹配冲突
+
 ## [v1.1.0] — 2026-05-04
 
 ### Added
