@@ -30,7 +30,6 @@
   - [列出模型](#1-列出模型)
   - [非流式对话](#2-非流式对话)
   - [流式对话](#3-流式对话)
-  - [工具调用（Function Calling）](#工具调用function-calling)
   - [模型刷新](#7-模型刷新)
 - [Anthropic Messages API](#6-anthropic-messages-api)
 - [Responses API](#5-responses-apiopenai-兼容)
@@ -380,34 +379,6 @@ curl http://localhost:8000/v1/messages \
 
 思考内容以 `thinking` block 形式实时流出，文本以 `text` block 流出。
 
-#### 工具调用（Function Calling）
-
-> **仅 main 分支支持。**
-
-```bash
-curl http://localhost:8000/v1/messages \
-  -H "x-api-key: sk-dsapi" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "deepseek-default",
-    "max_tokens": 1024,
-    "tools": [{
-      "name": "get_weather",
-      "description": "获取天气信息",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "city": {"type": "string"}
-        },
-        "required": ["city"]
-      }
-    }],
-    "messages": [
-      {"role": "user", "content": "北京天气怎么样？"}
-    ]
-  }'
-```
-
 **可用端点：**
 
 | 方法 | 端点 | 说明 |
@@ -524,6 +495,28 @@ def _discover_models():
 ## 工具调用详解
 
 DeepSeek 网页端**不支持** OpenAI function calling 格式。本代理通过 **DSML 提示词注入 + 多策略提取**实现工具调用：
+
+```bash
+curl http://localhost:8000/v1/chat/completions \
+  -H "Authorization: Bearer sk-dsapi" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepseek-chat",
+    "messages": [{"role": "user", "content": "北京天气怎么样？"}],
+    "tools": [{
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "获取天气信息",
+        "parameters": {
+          "type": "object",
+          "properties": {"city": {"type": "string"}},
+          "required": ["city"]
+        }
+      }
+    }]
+  }'
+```
 
 ### DSML 提示词注入
 
