@@ -521,7 +521,7 @@ def _discover_models():
 
 ## 工具调用详解
 
-DeepSeek API 原生支持 DSML（DeepSeek Markup Language）格式的工具调用。代理端通过 DSML 提示词注入 + 多策略提取实现：
+DeepSeek 网页端**不支持** OpenAI function calling 格式。本代理通过 **DSML 提示词注入 + 多策略提取**实现工具调用：
 
 ### DSML 提示词注入
 
