@@ -30,7 +30,7 @@
   - [列出模型](#1-列出模型)
   - [非流式对话](#2-非流式对话)
   - [流式对话](#3-流式对话)
-  - [工具调用（Function Calling）](#4-工具调用function-calling)
+  - [工具调用（Function Calling）](#工具调用function-calling)
   - [模型刷新](#7-模型刷新)
 - [Anthropic Messages API](#6-anthropic-messages-api)
 - [Responses API](#5-responses-apiopenai-兼容)
@@ -380,7 +380,9 @@ curl http://localhost:8000/v1/messages \
 
 思考内容以 `thinking` block 形式实时流出，文本以 `text` block 流出。
 
-**工具调用（仅 main 分支）：**
+#### 工具调用（Function Calling）
+
+> **仅 main 分支支持。**
 
 ```bash
 curl http://localhost:8000/v1/messages \
