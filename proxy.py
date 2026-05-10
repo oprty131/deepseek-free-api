@@ -28,6 +28,7 @@ from tool_call import (
     extract_tool_call,
     get_tool_names,
     convert_messages_for_deepseek,
+    clean_tool_text,
 )
 
 # ── 流式筛分 + DSML 解析 ────────────────────────────
@@ -4024,7 +4025,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                         for evt in sieve.feed(val):
                             if evt.type == "text":
                                 if isinstance(evt.data, str) and evt.data:
-                                    content_buffer.append(sanitize_leaked_output(evt.data))
+                                    content_buffer.append(clean_tool_text(sanitize_leaked_output(evt.data)))
                     elif etype == "thinking":
                         r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
                              "choices": [{"index": 0, "delta": {"reasoning_content": val}, "finish_reason": None}]}
@@ -4041,7 +4042,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 for evt in sieve.flush():
                     if evt.type == "text":
                         if isinstance(evt.data, str) and evt.data:
-                            content_buffer.append(sanitize_leaked_output(evt.data))
+                            content_buffer.append(clean_tool_text(sanitize_leaked_output(evt.data)))
                     elif evt.type == "tool_calls":
                         _had_tool_calls = True
                         for chunk in _emit_tool_calls(evt.data, chat_id, created, model):
@@ -4095,7 +4096,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 if etype == "content":
                     _stream_content_count += 1
                     r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                         "choices": [{"index": 0, "delta": {"content": sanitize_leaked_output(val)}, "finish_reason": None}]}
+                         "choices": [{"index": 0, "delta": {"content": clean_tool_text(sanitize_leaked_output(val))}, "finish_reason": None}]}
                     yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                 elif etype == "thinking":
                     _stream_think_count += 1
