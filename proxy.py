@@ -4016,6 +4016,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 sieve = StreamSieve(parse_fn=_parse_fn)
                 _role_sent = False
                 _full_buf = ""  # 并行缓冲完整内容，flush 时 fallback 解析
+                content_buffer = []  # 缓冲 text content，确认无工具调用后再发
 
                 for etype, val in _parse_sse(resp):
                     if etype == "content":
@@ -4023,14 +4024,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                         for evt in sieve.feed(val):
                             if evt.type == "text":
                                 if isinstance(evt.data, str) and evt.data:
-                                    if not _role_sent:
-                                        r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                                             "choices": [{"index": 0, "delta": {"role": "assistant", "content": None}, "finish_reason": None}]}
-                                        yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
-                                        _role_sent = True
-                                    r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                                         "choices": [{"index": 0, "delta": {"content": sanitize_leaked_output(evt.data)}, "finish_reason": None}]}
-                                    yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
+                                    content_buffer.append(sanitize_leaked_output(evt.data))
                     elif etype == "thinking":
                         r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
                              "choices": [{"index": 0, "delta": {"reasoning_content": val}, "finish_reason": None}]}
@@ -4047,14 +4041,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 for evt in sieve.flush():
                     if evt.type == "text":
                         if isinstance(evt.data, str) and evt.data:
-                            if not _role_sent:
-                                r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                                     "choices": [{"index": 0, "delta": {"role": "assistant", "content": None}, "finish_reason": None}]}
-                                yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
-                                _role_sent = True
-                            r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                                 "choices": [{"index": 0, "delta": {"content": sanitize_leaked_output(evt.data)}, "finish_reason": None}]}
-                            yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
+                            content_buffer.append(sanitize_leaked_output(evt.data))
                     elif evt.type == "tool_calls":
                         _had_tool_calls = True
                         for chunk in _emit_tool_calls(evt.data, chat_id, created, model):
@@ -4064,16 +4051,29 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 if not _had_tool_calls and _full_buf:
                     tc_result, _ = extract_tool_call(_full_buf, get_tool_names(tools) if tools else [])
                     if tc_result:
-                        if not _role_sent:
-                            r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                                 "choices": [{"index": 0, "delta": {"role": "assistant", "content": None}, "finish_reason": None}]}
-                            yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
-                            _role_sent = True
                         _had_tool_calls = True
                         for chunk in _emit_tool_calls(tc_result, chat_id, created, model):
                             yield chunk
 
-                if not _role_sent:
+                if _had_tool_calls:
+                    # 有工具调用 → 不发 content（思考链不泄漏）
+                    if not _role_sent:
+                        r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
+                             "choices": [{"index": 0, "delta": {"role": "assistant", "content": None}, "finish_reason": None}]}
+                        yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
+                    yield "data: [DONE]\n\n"
+                    return
+                elif content_buffer:
+                    # 无工具调用 → 发送所有缓冲的 content
+                    if not _role_sent:
+                        r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
+                             "choices": [{"index": 0, "delta": {"role": "assistant", "content": None}, "finish_reason": None}]}
+                        yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
+                        _role_sent = True
+                    for chunk_text in content_buffer:
+                        r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
+                             "choices": [{"index": 0, "delta": {"content": chunk_text}, "finish_reason": None}]}
+                        yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                     r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
                          "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
                     yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
