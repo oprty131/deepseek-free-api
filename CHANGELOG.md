@@ -1,3 +1,9 @@
+## [v2.2.6] — 2026-05-11
+
+### 修复
+- **换行符保留** — `clean_tool_text` 不再 strip 末尾空白，避免独立 `
+` 分块被吃导致 Markdown 格式挤在一起
+
 # 更新日志（Changelog）
 
 本文件记录 deepseek-free-api 的所有重要变更。
