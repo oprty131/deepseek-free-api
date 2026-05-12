@@ -8,6 +8,8 @@ Reverse-engineer **DeepSeek web chat** (chat.deepseek.com) into an **OpenAI-comp
 
 本项目所修改代码均为ai完成，不含任何一句人工代码，望周知！
 
+> 📖 [中文版本](README.md)
+
 [zhangjiabo522](https://github.com/zhangjiabo522) — Thanks for providing model tokens for Vision feature testing!
 
 > **💡 Need pure chat without tools?** Use the [`no-tools` branch](#no-tools-branch) — no tool prompt injection, cleaner context, higher output quality.
