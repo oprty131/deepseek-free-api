@@ -1630,7 +1630,7 @@ a{color:#7dd3fc}
 </div>
 </div>
 <div class="step" style="margin-top:16px">
-<button class="btn" style="background:#334155;color:#e2e8f0;width:100%;font-size:13px" onclick="refreshModels()" id="refreshBtn">🔄 刷新模型列表</button>
+<button class="btn" style="background:#334155;color:#e2e8f0;width:100%;font-size:13px" onclick="refreshModels()" id="refreshBtn" data-i18n="refreshModels">🔄 刷新模型列表</button>
 <div id="modelsInfo" style="margin-top:8px;font-size:12px;color:#64748b;display:none"></div>
 </div>
 </div>
