@@ -1594,6 +1594,7 @@ a{color:#7dd3fc}
 <div class="tab" onclick="switchTab('email')">邮箱登录</div>
 <div class="tab" onclick="switchTab('usage')">用量统计</div>
 <div class="tab" onclick="switchTab('accounts')">账号管理</div>
+<div class="tab" onclick="switchTab('settings')" data-i18n="settings">设置</div>
 </div>
 
 <div id="phonePanel" class="panel active">
@@ -1661,12 +1662,25 @@ a{color:#7dd3fc}
 <button class="acct-btn batch" onclick="cleanupSessions()" data-i18n="cleanupSessionsBtn" style="background:#7c3aed;color:#fff">清理过期会话</button>
 </div>
 </div>
+
+<div id="settingsPanel" class="panel" style="display:none">
+<div class="sl" style="font-weight:600;color:#e2e8f0;" data-i18n="proxyTitle">代理配置</div>
+<div class="cr" style="margin-top:12px">
+  <span style="color:#94a3b8;font-size:13px" data-i18n="proxyHint">绕过 AWS WAF 拦截。格式：http://127.0.0.1:7890 或 socks5://127.0.0.1:7891</span>
+</div>
+<div class="pw-row" style="margin-top:12px">
+  <input type="text" id="proxyUrl" placeholder="http://127.0.0.1:7890" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;padding:12px;font-size:14px">
+</div>
+<button class="btn bp" onclick="saveProxy()" data-i18n="proxySaveBtn" style="margin-top:8px">保存</button>
+<div id="proxyStatus" style="margin-top:8px;font-size:12px;color:#64748b"></div>
+</div>
+
 <div id="toast" class="toast"></div>
 <script>
 // === i18n ===
 var _lang=localStorage.getItem('ds_lang')||'zh';
 var _I={
-zh:{phoneLogin:'手机号登录',emailLogin:'邮箱登录',usage:'用量统计',accounts:'账号管理',
+zh:{phoneLogin:'手机号登录',emailLogin:'邮箱登录',usage:'用量统计',accounts:'账号管理',settings:'设置',
 phonePlaceholder:'手机号',pwdPlaceholder:'密码',loginBtn:'登录',loginBtnDoing:'登录中...',
 emailPlaceholder:'邮箱地址',waitingCfg:'等待配置',configured:'已配置',connFail:'连接失败',
 loggingDS:'正在登录 DeepSeek...',loginOk:'登录成功',loginFail:'失败:',
@@ -1693,7 +1707,8 @@ phoneRequired:'请输入手机号和密码',emailRequired:'请输入邮箱和密
 addOk:'已添加，需登录获取token',addFail:'失败: ',
 pleaseAdd:'暂无账号，请在上方添加',pasteCurl:'粘贴 cURL ...',
 modelCountSuffix:' 个模型: ',acctAddFail:'添加失败: ',unknownErr:'未知错误',
-cleanupBtnDoing:'清理中...',unknown:'未知'},
+cleanupBtnDoing:'清理中...',unknown:'未知',
+proxyTitle:'代理配置',proxyHint:'绕过 AWS WAF 拦截。格式：http://127.0.0.1:7890 或 socks5://127.0.0.1:7891',proxySaveBtn:'保存代理设置',proxySaved:'已保存',proxySaveFail:'保存失败: ',proxyLoadFail:'加载失败: '},
 en:{phoneLogin:'Phone Login',emailLogin:'Email Login',usage:'Usage',accounts:'Accounts',
 phonePlaceholder:'Phone Number',pwdPlaceholder:'Password',loginBtn:'Login',loginBtnDoing:'Logging in...',
 emailPlaceholder:'Email Address',waitingCfg:'Awaiting Config',configured:'Configured',connFail:'Connection Failed',
@@ -1738,15 +1753,17 @@ function Qs(s){return document.querySelectorAll(s)}
 document.addEventListener('DOMContentLoaded',function(){Q('langBtn').textContent=_lang==='zh'?'🌐 EN':'🌐 中';applyI18n()});
 function Q(id){return document.getElementById(id)}
 function switchTab(type){
-var ti={'phone':0,'email':1,'usage':2,'accounts':3};
-document.querySelectorAll('.tab').forEach((t,i)=>{t.className='tab'+(i===ti[type]?' active':'')});
+var ti={'phone':0,'email':1,'usage':2,'accounts':3,'settings':4};
+document.querySelectorAll('.tab').forEach((t,i)=>{t.className='tab'+(i===ti[type]?' active':'');});
 Q('phonePanel').className='panel'+(type==='phone'?' active':'');
 Q('emailPanel').className='panel'+(type==='email'?' active':'');
 if(Q('usagePanel'))Q('usagePanel').className='panel'+(type==='usage'?' active':'');
 if(Q('accountsPanel'))Q('accountsPanel').className='panel'+(type==='accounts'?' active':'');
-var as=Q('apiSection');if(as)as.style.display=(type==='usage'||type==='accounts')?'none':'';
+if(Q('settingsPanel'))Q('settingsPanel').className='panel'+(type==='settings'?' active':'');
+var as=Q('apiSection');if(as)as.style.display=(type==='usage'||type==='accounts'||type==='settings')?'none':'';
 if(type==='usage')loadUsage();
 if(type==='accounts')loadAccounts();
+if(type==='settings')loadProxy();
 }
 async function cs(){
 try{const r=await fetch('/api/config');const d=await r.json()
@@ -1875,6 +1892,25 @@ var d=await r.json();
 t(d.ok?d.msg:_('cleanupFail')+(d.msg||_('unknown')),d.ok?0:1)
 }catch(e){t(_('cleanupFail')+e.message,1)}
 if(btn){btn.disabled=false;btn.textContent=_('cleanupSessionsBtn')}
+}
+// === 代理配置 ===
+async function loadProxy(){
+try{
+const r=await fetch('/api/proxy');const d=await r.json();
+Q('proxyUrl').value=d.proxy||'';
+var st=Q('proxyStatus');
+st.textContent=d.proxy?_('proxySaved'):'';
+st.style.color=d.proxy?'#22c55e':'#64748b';
+}catch(e){Q('proxyStatus').textContent=_('proxyLoadFail')+e.message}
+}
+async function saveProxy(){
+var url=Q('proxyUrl').value.trim();
+try{
+const r=await fetch('/api/proxy',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({proxy:url})});
+const d=await r.json();
+if(d.ok){Q('proxyStatus').textContent=_('proxySaved');Q('proxyStatus').style.color='#22c55e';t(_('proxySaved'))}
+else{Q('proxyStatus').textContent=_('proxySaveFail')+d.msg;t(_('proxySaveFail')+(d.msg||''),1)}
+}catch(e){Q('proxyStatus').textContent=_('proxySaveFail')+e.message;t(_('proxySaveFail')+e.message,1)}
 }
 // === 用量统计 ===
 var _up='total';
@@ -2021,14 +2057,32 @@ async def deepseek_login(data: dict):
     }
 
     try:
-        # 1. 登录
-        login_resp = cffi_requests.post(
+        # 0. 创建 Session + 预访问首页获取 WAF Cookie
+        session = cffi_requests.Session()
+        session.impersonate = "chrome120"
+        proxy_dict = _get_proxy_dict()
+        if proxy_dict:
+            session.proxies = proxy_dict
+        try:
+            session.get(
+                "https://chat.deepseek.com/",
+                headers={"user-agent": DS_HEADERS.get("user-agent", "")},
+                timeout=15,
+            )
+        except Exception:
+            pass  # 首页访问失败不阻塞登录
+
+        # 1. 登录（使用 session 自动携带 Cookie）
+        login_resp = session.post(
             "https://chat.deepseek.com/api/v0/users/login",
             json=login_payload,
             headers=DS_HEADERS,
-            impersonate="chrome120",
             timeout=30,
         )
+
+        # WAF 挑战检测
+        if login_resp.status_code == 202 and login_resp.headers.get("x-amzn-waf-action"):
+            return {"ok": False, "error": "登录被 AWS WAF 拦截 (HTTP 202)。您的 IP 触发了 CloudFront 人机验证，请配置代理（设置 → 代理配置）绕过 WAF。"}
 
         raw_text = (login_resp.text or "").strip()
         if not raw_text:
@@ -2055,13 +2109,12 @@ async def deepseek_login(data: dict):
 
         print(f"[Login] Token acquired for {account_label}: {token[:20]}...{token[-8:]}")
 
-        # 2. 创建会话
+        # 2. 创建会话（也用 session 保持一致性）
         auth_headers = {**DS_HEADERS, "authorization": f"Bearer {token}"}
-        session_resp = cffi_requests.post(
+        session_resp = session.post(
             "https://chat.deepseek.com/api/v0/chat_session/create",
             json={},
             headers=auth_headers,
-            impersonate="chrome120",
             timeout=15,
         )
 
@@ -2261,6 +2314,33 @@ async def manual_cleanup():
         return {"ok": False, "msg": str(e)}
 
 
+# ── 代理配置 ────────────────────────────────────────
+
+
+def _get_proxy_dict() -> dict | None:
+    """从 ConfigManager 读取代理配置，返回 curl_cffi 兼容格式。
+    返回 None 表示未配置代理，应走直连。"""
+    url = config_manager.get_proxy()
+    if not url:
+        return None
+    return {"http": url, "https": url}
+
+
+@app.get("/api/proxy")
+async def get_proxy():
+    """获取当前代理配置"""
+    proxy_url = config_manager.get_proxy()
+    return {"proxy": proxy_url or ""}
+
+
+@app.put("/api/proxy")
+async def set_proxy(data: dict):
+    """设置代理地址。传 {"proxy": "http://127.0.0.1:7890"} 或 {"proxy": ""} 清除。"""
+    url = data.get("proxy", "").strip()
+    config_manager.set_proxy(url)
+    return {"ok": True, "proxy": url}
+
+
 # ─── 模型列表（免鉴权，供管理页面使用） ───────────────────────
 
 @app.get("/api/models")
@@ -2299,7 +2379,7 @@ def _discover_models() -> dict:
     }
 
     try:
-        resp = cffi_requests.get(MODEL_CONFIG_URL, headers=headers, timeout=10)
+        resp = cffi_requests.get(MODEL_CONFIG_URL, headers=headers, timeout=10, proxies=_get_proxy_dict())
         data = resp.json()
         biz_data = data.get("data", {}).get("biz_data", {})
         settings = biz_data.get("settings", {})
@@ -2416,13 +2496,35 @@ def relogin(cfg: dict) -> dict | None:
 
     try:
         print(f"[Token] 自动重新登录 {account_label}...")
-        login_resp = cffi_requests.post(
+
+        # 0. 创建 Session + 预访问首页获取 WAF Cookie
+        session = cffi_requests.Session()
+        session.impersonate = "chrome120"
+        proxy_dict = _get_proxy_dict()
+        if proxy_dict:
+            session.proxies = proxy_dict
+        try:
+            session.get(
+                "https://chat.deepseek.com/",
+                headers={"user-agent": DS_HEADERS.get("user-agent", "")},
+                timeout=15,
+            )
+        except Exception:
+            pass  # 首页访问失败不阻塞登录
+
+        # 1. 登录（使用 session 自动携带 Cookie）
+        login_resp = session.post(
             "https://chat.deepseek.com/api/v0/users/login",
             json=login_payload,
             headers=DS_HEADERS,
-            impersonate="chrome120",
             timeout=30,
         )
+
+        # WAF 挑战检测
+        if login_resp.status_code == 202 and login_resp.headers.get("x-amzn-waf-action"):
+            print(f"[Token] 自动登录被 AWS WAF 拦截 (HTTP 202)")
+            return None
+
         raw_text = (login_resp.text or "").strip()
         if not raw_text:
             print(f"[Token] 自动登录失败: 服务器返回空响应 (HTTP {login_resp.status_code})")
@@ -2450,13 +2552,12 @@ def relogin(cfg: dict) -> dict | None:
 
         print(f"[Token] 新 token: {token[:20]}...{token[-8:]}")
 
-        # 创建新会话
+        # 2. 创建新会话（也用 session 保持一致性）
         auth_headers = {**DS_HEADERS, "authorization": f"Bearer {token}"}
-        session_resp = cffi_requests.post(
+        session_resp = session.post(
             "https://chat.deepseek.com/api/v0/chat_session/create",
             json={},
             headers=auth_headers,
-            impersonate="chrome120",
             timeout=15,
         )
         session_id = ""
@@ -2595,6 +2696,7 @@ def get_pow_response(target_path: str = "/api/v0/chat/completion",
             json={"target_path": target_path},
             impersonate="chrome120",
             timeout=15,
+            proxies=_get_proxy_dict(),
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -2651,6 +2753,7 @@ def upload_file_to_deepseek(file_data: bytes, filename: str, content_type: str =
             headers=req_headers,
             files={"file": (filename, file_data, content_type)},
             timeout=60,
+            proxies=_get_proxy_dict(),
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -2682,6 +2785,7 @@ def _delete_deepseek_session(token: str, session_id: str) -> bool:
             headers=headers,
             impersonate="chrome120",
             timeout=15,
+            proxies=_get_proxy_dict(),
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -2727,6 +2831,7 @@ def fork_file_to_vision(cfg: dict, file_id: str) -> str | None:
             headers=headers,
             json={"file_id": file_id, "to_model_type": "vision"},
             timeout=15,
+            proxies=_get_proxy_dict(),
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -2799,6 +2904,7 @@ def _fetch_file_statuses(cfg: dict, file_ids: list[str]) -> dict | None:
             headers=headers,
             params={"file_ids": file_ids},
             timeout=15,
+            proxies=_get_proxy_dict(),
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -2919,7 +3025,7 @@ def _parse_image_url(url_or_data: str) -> dict | None:
     # HTTP URL
     if s.startswith("http://") or s.startswith("https://"):
         try:
-            resp = cffi_requests.get(s, timeout=30, impersonate="chrome120")
+            resp = cffi_requests.get(s, timeout=30, impersonate="chrome120", proxies=_get_proxy_dict())
             if resp.status_code == 200:
                 ct = resp.headers.get("content-type", "image/png")
                 ext = ct.split("/")[-1] if "/" in ct else "png"
@@ -3017,7 +3123,8 @@ async def chat(request: Request):
                 auth_h = {**cfg.get("headers", {}), "authorization": f"Bearer {token}"}
                 sess_resp = cffi_requests.post(
                     "https://chat.deepseek.com/api/v0/chat_session/create",
-                    json={}, headers=auth_h, impersonate="chrome120", timeout=15)
+                    json={}, headers=auth_h, impersonate="chrome120", timeout=15,
+                    proxies=_get_proxy_dict())
                 if sess_resp.status_code == 200:
                     biz = sess_resp.json().get("data", {}).get("biz_data", {})
                     new_sid = biz.get("chat_session", {}).get("id", "") or biz.get("id", "")
@@ -3045,7 +3152,8 @@ async def chat(request: Request):
                 auth_h = {**cfg.get("headers", {}), "authorization": f"Bearer {token}"}
                 sess_resp = cffi_requests.post(
                     "https://chat.deepseek.com/api/v0/chat_session/create",
-                    json={}, headers=auth_h, impersonate="chrome120", timeout=15)
+                    json={}, headers=auth_h, impersonate="chrome120", timeout=15,
+                    proxies=_get_proxy_dict())
                 if sess_resp.status_code == 200:
                     biz = sess_resp.json().get("data", {}).get("biz_data", {})
                     new_sid = biz.get("chat_session", {}).get("id", "") or biz.get("id", "")
@@ -4078,6 +4186,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 impersonate="chrome120",
                 stream=True,
                 timeout=120,
+                proxies=_get_proxy_dict(),
             )
 
             if ref_file_ids or thinking_enabled:
@@ -4265,6 +4374,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 impersonate="chrome120",
                 stream=True,  # Always stream — curl_cffi stream=False truncates SSE
                 timeout=120,
+                proxies=_get_proxy_dict(),
             )
 
             if ref_file_ids or thinking_enabled:
