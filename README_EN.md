@@ -135,6 +135,12 @@ chmod +x deploy.sh
 
 After deployment, visit: **http://localhost:8000/admin**
 
+### Docker
+
+```bash
+docker run -d -p 8000:8000 -v $(pwd)/config.json:/app/config.json ghcr.io/fly143/deepseek-free-api:latest
+```
+
 > 💡 **No tools needed?** Clone the [`no-tools` branch](https://github.com/Fly143/deepseek-free-api/tree/no-tools) for a cleaner pure chat edition (no prompt injection, higher output quality).
 
 ### Manual Install
