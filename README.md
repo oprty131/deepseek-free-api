@@ -136,6 +136,12 @@ chmod +x deploy.sh
 
 部署完成后访问：**http://localhost:8000/admin**
 
+### Docker 部署
+
+```bash
+docker run -d -p 8000:8000 -v $(pwd)/config.json:/app/config.json ghcr.io/fly143/deepseek-free-api:latest
+```
+
 > 💡 **不需要工具调用？** 克隆 [`no-tools` 分支](https://github.com/Fly143/deepseek-free-api/tree/no-tools) 即可获得更干净的纯对话版本（无 prompt 注入，输出质量更高）。
 
 ### 手动安装
