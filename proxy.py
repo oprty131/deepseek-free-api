@@ -4135,7 +4135,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 sieve = StreamSieve(parse_fn=_parse_fn)
                 _role_sent = False
                 _full_buf = ""  # 并行缓冲完整内容，flush 时 fallback 解析
-                content_buffer = []  # 缓冲 text content，确认无工具调用后再发
+                content_buffer = []  # 缓冲 text content 用于 fallback 解析
 
                 for etype, val in _parse_sse(resp):
                     if etype == "content":
@@ -4143,7 +4143,17 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                         for evt in sieve.feed(val):
                             if evt.type == "text":
                                 if isinstance(evt.data, str) and evt.data:
-                                    content_buffer.append(clean_tool_text(sanitize_leaked_output(evt.data)))
+                                    chunk = clean_tool_text(sanitize_leaked_output(evt.data))
+                                    content_buffer.append(chunk)
+                                    # 边流式边缓冲：RikkaHub 需要实时收到 content delta
+                                    if not _role_sent:
+                                        r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
+                                             "choices": [{"index": 0, "delta": {"role": "assistant", "content": None}, "finish_reason": None}]}
+                                        yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
+                                        _role_sent = True
+                                    r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
+                                         "choices": [{"index": 0, "delta": {"content": chunk}, "finish_reason": None}]}
+                                    yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                     elif etype == "thinking":
                         r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
                              "choices": [{"index": 0, "delta": {"reasoning_content": val}, "finish_reason": None}]}
@@ -4160,7 +4170,17 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 for evt in sieve.flush():
                     if evt.type == "text":
                         if isinstance(evt.data, str) and evt.data:
-                            content_buffer.append(clean_tool_text(sanitize_leaked_output(evt.data)))
+                            chunk = clean_tool_text(sanitize_leaked_output(evt.data))
+                            content_buffer.append(chunk)
+                            # 边流式边缓冲
+                            if not _role_sent:
+                                r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
+                                     "choices": [{"index": 0, "delta": {"role": "assistant", "content": None}, "finish_reason": None}]}
+                                yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
+                                _role_sent = True
+                            r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
+                                 "choices": [{"index": 0, "delta": {"content": chunk}, "finish_reason": None}]}
+                            yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                     elif evt.type == "tool_calls":
                         _had_tool_calls = True
                         for chunk in _emit_tool_calls(evt.data, chat_id, created, model):
@@ -4175,7 +4195,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                             yield chunk
 
                 if _had_tool_calls:
-                    # 有工具调用 → 不发 content（思考链不泄漏）
+                    # 有工具调用 → content 已在流中发出（如有），直接 DONE
                     if not _role_sent:
                         r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
                              "choices": [{"index": 0, "delta": {"role": "assistant", "content": None}, "finish_reason": None}]}
@@ -4183,15 +4203,10 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                     yield "data: [DONE]\n\n"
                     return
                 elif content_buffer:
-                    # 无工具调用 → 发送所有缓冲的 content
+                    # 无工具调用，content 已在流中发出，只需发 stop + DONE
                     if not _role_sent:
                         r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
                              "choices": [{"index": 0, "delta": {"role": "assistant", "content": None}, "finish_reason": None}]}
-                        yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
-                        _role_sent = True
-                    for chunk_text in content_buffer:
-                        r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
-                             "choices": [{"index": 0, "delta": {"content": chunk_text}, "finish_reason": None}]}
                         yield f'data: {json.dumps(r, ensure_ascii=False)}\n\n'
                     r = {"id": chat_id, "object": "chat.completion.chunk", "created": created, "model": model,
                          "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
