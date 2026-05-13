@@ -2030,7 +2030,15 @@ async def deepseek_login(data: dict):
             timeout=30,
         )
 
-        login_data = login_resp.json()
+        raw_text = (login_resp.text or "").strip()
+        if not raw_text:
+            return {"ok": False, "error": f"登录失败: 服务器返回空响应 (HTTP {login_resp.status_code})，可能是 IP 被风控或需要完成人机验证"}
+
+        try:
+            login_data = login_resp.json()
+        except Exception:
+            preview = raw_text[:200]
+            return {"ok": False, "error": f"登录失败: 服务器返回非 JSON 响应 (HTTP {login_resp.status_code}): {preview}"}
         outer_code = login_data.get("code", 0)
         data_block = login_data.get("data") or {}
         biz_code = data_block.get("biz_code", 0)
@@ -2415,7 +2423,15 @@ def relogin(cfg: dict) -> dict | None:
             impersonate="chrome120",
             timeout=30,
         )
-        login_data = login_resp.json()
+        raw_text = (login_resp.text or "").strip()
+        if not raw_text:
+            print(f"[Token] 自动登录失败: 服务器返回空响应 (HTTP {login_resp.status_code})")
+            return None
+        try:
+            login_data = login_resp.json()
+        except Exception:
+            print(f"[Token] 自动登录失败: 非 JSON 响应: {raw_text[:200]}")
+            return None
         outer_code = login_data.get("code", 0)
         data_block = login_data.get("data") or {}
         biz_code = data_block.get("biz_code", 0)
