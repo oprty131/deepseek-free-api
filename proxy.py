@@ -1526,7 +1526,7 @@ input:focus{outline:none;border-color:#3b82f6}
 .pw-row{margin-bottom:14px}
 .pw-row input{width:100%}
 .tab-bar{display:flex;gap:0;margin-bottom:16px;border-radius:8px;overflow:hidden;border:1px solid #334155}
-.tab{flex:1;padding:10px;text-align:center;font-size:13px;cursor:pointer;background:#0f172a;color:#94a3b8;transition:all .2s;white-space:nowrap}
+.tab{flex:1;padding:10px;text-align:center;font-size:13px;cursor:pointer;background:#0f172a;color:#94a3b8;transition:all .2s}
 .tab.active{background:#2563eb;color:#fff}
 .tab:hover:not(.active){background:#1e293b}
 .panel{display:none}.panel.active{display:block}
@@ -1661,9 +1661,8 @@ a{color:#7dd3fc}
 <button class="acct-btn batch" onclick="reloginAll()" data-i18n="reloginAllBtn">全部重新登录</button>
 <button class="acct-btn batch" onclick="cleanupSessions()" data-i18n="cleanupSessionsBtn" style="background:#7c3aed;color:#fff">清理过期会话</button>
 </div>
-</div>
 
-<div id="settingsPanel" class="panel" style="display:none">
+<div id="settingsPanel" class="panel">
 <div class="sl" style="font-weight:600;color:#e2e8f0;" data-i18n="proxyTitle">代理配置</div>
 <div class="cr" style="margin-top:12px">
   <span style="color:#94a3b8;font-size:13px" data-i18n="proxyHint">绕过 AWS WAF 拦截。格式：http://127.0.0.1:7890 或 socks5://127.0.0.1:7891</span>
@@ -1673,6 +1672,7 @@ a{color:#7dd3fc}
 </div>
 <button class="btn bp" onclick="saveProxy()" data-i18n="proxySaveBtn" style="margin-top:8px">保存</button>
 <div id="proxyStatus" style="margin-top:8px;font-size:12px;color:#64748b"></div>
+</div>
 </div>
 
 <div id="toast" class="toast"></div>
