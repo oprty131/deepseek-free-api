@@ -46,9 +46,11 @@ def _safe_get(d: Any, key: str, default: Any = None) -> Any:
 
 # ─── 构建工具提示词 ──────────────────────────────────────────
 
-def build_tool_prompt(tools: List[Dict[str, Any]]) -> str:
-    """构建 DSML 格式的工具调用提示词。"""
-    return build_dsml_tool_prompt(tools)
+def build_tool_prompt(tools: List[Dict[str, Any]], passthrough: bool = False) -> str:
+    """构建 DSML 格式的工具调用提示词。
+    passthrough=True 时跳过格式说明书，直接嵌入原始工具定义。
+    """
+    return build_dsml_tool_prompt(tools, passthrough=passthrough)
 
 
 # ─── 提取工具名列表 ──────────────────────────────────────────
@@ -180,7 +182,7 @@ def clean_tool_text(text: str) -> str:
 
 # ─── 消息转换为 DeepSeek 格式 ──────────────────────────────
 
-def convert_messages_for_deepseek(messages, tools=None):
+def convert_messages_for_deepseek(messages, tools=None, passthrough=False):
     """将 OpenAI 消息列表转换为 DeepSeek 原生 prompt 格式。
 
     参照 ds2api 的 MessagesPrepare:
@@ -207,7 +209,7 @@ def convert_messages_for_deepseek(messages, tools=None):
             has_system = True
             text = str(content) if content else ""
             if tools:
-                tool_text = build_dsml_tool_prompt(tools)
+                tool_text = build_dsml_tool_prompt(tools, passthrough=passthrough)
                 if tool_text:
                     if text.strip():
                         text = text + "\n\n" + tool_text
@@ -263,7 +265,7 @@ def convert_messages_for_deepseek(messages, tools=None):
 
     # 如果没有 system 消息但有 tools，将 tool prompt 作为 system 消息插入
     if tools and not has_system:
-        tool_text = build_dsml_tool_prompt(tools)
+        tool_text = build_dsml_tool_prompt(tools, passthrough=passthrough)
         if tool_text:
             parts.insert(1, SYS + tool_text + SYS_END)
 

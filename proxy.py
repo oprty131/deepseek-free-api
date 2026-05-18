@@ -1554,6 +1554,9 @@ hr{border:none;border-top:1px solid #334155;margin:24px 0}
 .pb.ac{background:#2563eb;color:#fff;border-color:#2563eb}
 .period-btn.active{background:#2563eb;color:#fff}
 a{color:#7dd3fc}
+/* Toggle switch */
+.switch input:checked + span{background:#2563eb!important}
+.switch input:checked + span + span{transform:translateX(18px)!important;background:#fff!important}
 /* Account management */
 .acct-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
 .acct-tbl th,.acct-tbl td{padding:8px 10px;text-align:left;border-bottom:1px solid #334155}
@@ -1652,13 +1655,6 @@ a{color:#7dd3fc}
 <div id="accountsPanel" class="panel">
 <div class="acct-stat" id="acctStat" data-i18n="loadingAccounts">加载中...</div>
 
-<div class="acct-add">
-<input type="tel" id="acctPhone" data-i18n-ph="phonePlaceholder" placeholder="手机号">
-<select id="acctType"><option value="phone">📱</option></select>
-<input type="password" id="acctPw" data-i18n-ph="pwdPlaceholder" placeholder="密码">
-<button onclick="addAccount()" data-i18n="addAcctBtn">添加</button>
-</div>
-
 <div id="acctList"><div class="acct-empty">暂无账号，请先添加</div></div>
 <button class="acct-btn batch" onclick="reloginAll()" data-i18n="reloginAllBtn">全部重新登录</button>
 <button class="acct-btn batch" onclick="cleanupSessions()" data-i18n="cleanupSessionsBtn" style="background:#7c3aed;color:#fff">清理过期会话</button>
@@ -1674,6 +1670,21 @@ a{color:#7dd3fc}
 </div>
 <button class="btn bp" onclick="saveProxy()" data-i18n="proxySaveBtn" style="margin-top:8px">保存</button>
 <div id="proxyStatus" style="margin-top:8px;font-size:12px;color:#64748b"></div>
+<hr>
+<div class="sl" style="font-weight:600;color:#e2e8f0;margin-bottom:8px" data-i18n="passthroughTitle">工具透传模式</div>
+<div class="cr">
+  <span style="color:#94a3b8;font-size:13px" data-i18n="passthroughHint">跳过 DSML 格式说明书，直接嵌入原始工具定义（适合 Roo Code / Cline）</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+  <label style="font-size:13px;color:#e2e8f0" id="passthroughLabel" data-i18n="passthroughToggle">关闭</label>
+  <label class="switch" style="position:relative;display:inline-block;width:40px;height:22px">
+    <input type="checkbox" id="passthroughToggle" onchange="updatePassthroughLabel()" style="opacity:0;width:0;height:0">
+    <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#334155;border-radius:22px;transition:.3s"></span>
+    <span style="position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#94a3b8;border-radius:50%;transition:.3s" class="slider-knob"></span>
+  </label>
+  <button class="btn bp" onclick="savePassthrough()" data-i18n="passthroughSaveBtn" style="font-size:12px;padding:6px 14px;width:auto">保存</button>
+</div>
+<div id="passthroughStatus" style="margin-top:4px;font-size:12px;color:#64748b"></div>
 </div>
 </div>
 
@@ -1713,7 +1724,8 @@ curlTitle:'📋 cURL 导入',curlSteps:'导入步骤：',
 curlStep1:'1. 打开 chat.deepseek.com 并登录',curlStep2:'2. 按 F12 → Network 面板',
 curlStep3:'3. 发送任意消息，找到 completion 请求',curlStep4:'4. 右键 → Copy as cURL，粘贴到下方',
 cleanupBtnDoing:'清理中...',unknown:'未知',
-proxyTitle:'代理配置',proxyHint:'绕过 AWS WAF 拦截。格式：http://127.0.0.1:7890 或 socks5://127.0.0.1:7891',proxySaveBtn:'保存代理设置',proxySaved:'已保存',proxySaveFail:'保存失败: ',proxyLoadFail:'加载失败: '},
+proxyTitle:'代理配置',proxyHint:'绕过 AWS WAF 拦截。格式：http://127.0.0.1:7890 或 socks5://127.0.0.1:7891',proxySaveBtn:'保存代理设置',proxySaved:'已保存',proxySaveFail:'保存失败: ',proxyLoadFail:'加载失败: ',
+passthroughTitle:'工具透传模式',passthroughHint:'跳过 DSML 格式说明书，直接嵌入原始工具定义（适合 Roo Code / Cline）',passthroughToggle:'关闭',passthroughSaveBtn:'保存',passthroughSaved:'已保存',passthroughSaveFail:'保存失败: ',passthroughLoadFail:'加载失败: '},
 en:{phoneLogin:'Phone Login',emailLogin:'Email Login',usage:'Usage',accounts:'Accounts',
 phonePlaceholder:'Phone Number',pwdPlaceholder:'Password',loginBtn:'Login',loginBtnDoing:'Logging in...',
 emailPlaceholder:'Email Address',waitingCfg:'Awaiting Config',configured:'Configured',connFail:'Connection Failed',
@@ -1744,7 +1756,9 @@ modelCountSuffix:' model(s): ',acctAddFail:'Add failed: ',unknownErr:'Unknown er
 curlTitle:'📋 cURL Import',curlSteps:'Steps:',
 curlStep1:'1. Open chat.deepseek.com and log in',curlStep2:'2. Press F12 → Network tab',
 curlStep3:'3. Send any message, find the completion request',curlStep4:'4. Right-click → Copy as cURL, paste below',
-cleanupBtnDoing:'Cleaning...',unknown:'Unknown'}};
+cleanupBtnDoing:'Cleaning...',unknown:'Unknown',
+proxyTitle:'Proxy Config',proxyHint:'Bypass AWS WAF. Format: http://127.0.0.1:7890 or socks5://127.0.0.1:7891',proxySaveBtn:'Save Proxy',proxySaved:'Saved',proxySaveFail:'Save Failed: ',proxyLoadFail:'Load Failed: ',
+passthroughTitle:'Tool Passthrough Mode',passthroughHint:'Skip DSML format spec, embed raw tool definitions (suitable for Roo Code / Cline)',passthroughToggle:'Off',passthroughSaveBtn:'Save',passthroughSaved:'Saved',passthroughSaveFail:'Save Failed: ',passthroughLoadFail:'Load Failed: '}};
 function _(k){return (_I[_lang]||_I.zh)[k]||k}
 function toggleLang(){_lang=_lang==='zh'?'en':'zh';localStorage.setItem('ds_lang',_lang);Q('langBtn').textContent=_lang==='zh'?'🌐 EN':'🌐 中';applyI18n()}
 function applyI18n(){
@@ -1771,7 +1785,7 @@ if(Q('settingsPanel'))Q('settingsPanel').className='panel'+(type==='settings'?' 
 var as=Q('apiSection');if(as)as.style.display=(type==='usage'||type==='accounts'||type==='settings')?'none':'';
 if(type==='usage')loadUsage();
 if(type==='accounts')loadAccounts();
-if(type==='settings')loadProxy();
+if(type==='settings'){loadProxy();loadPassthrough();}
 }
 async function cs(){
 try{const r=await fetch('/api/config');const d=await r.json()
@@ -1918,6 +1932,27 @@ const d=await r.json();
 if(d.ok){Q('proxyStatus').textContent=_('proxySaved');Q('proxyStatus').style.color='#22c55e';t(_('proxySaved'))}
 else{Q('proxyStatus').textContent=_('proxySaveFail')+d.msg;t(_('proxySaveFail')+(d.msg||''),1)}
 }catch(e){Q('proxyStatus').textContent=_('proxySaveFail')+e.message;t(_('proxySaveFail')+e.message,1)}
+}
+// === 透传模式 ===
+async function loadPassthrough(){
+try{
+const r=await fetch('/api/passthrough');const d=await r.json();
+Q('passthroughToggle').checked=!!d.passthrough;
+updatePassthroughLabel();
+}catch(e){Q('passthroughStatus').textContent=_('passthroughLoadFail')+e.message}
+}
+async function savePassthrough(){
+var en=Q('passthroughToggle').checked;
+try{
+const r=await fetch('/api/passthrough',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({passthrough:en})});
+const d=await r.json();
+if(d.ok){Q('passthroughStatus').textContent=_('passthroughSaved');Q('passthroughStatus').style.color='#22c55e';t(_('passthroughSaved'))}
+else{Q('passthroughStatus').textContent=_('passthroughSaveFail')+d.msg;t(_('passthroughSaveFail')+(d.msg||''),1)}
+}catch(e){Q('passthroughStatus').textContent=_('passthroughSaveFail')+e.message;t(_('passthroughSaveFail')+e.message,1)}
+}
+function updatePassthroughLabel(){
+Q('passthroughLabel').textContent=Q('passthroughToggle').checked?'ON':'OFF';
+Q('passthroughLabel').style.color=Q('passthroughToggle').checked?'#22c55e':'#e2e8f0';
 }
 // === 用量统计 ===
 var _up='total';
@@ -2346,6 +2381,20 @@ async def set_proxy(data: dict):
     url = data.get("proxy", "").strip()
     config_manager.set_proxy(url)
     return {"ok": True, "proxy": url}
+
+
+@app.get("/api/passthrough")
+async def get_passthrough():
+    """获取透传模式状态。"""
+    return {"passthrough": config_manager.get_passthrough()}
+
+
+@app.put("/api/passthrough")
+async def set_passthrough(data: dict):
+    """设置透传模式。传 {"passthrough": true/false}"""
+    enabled = data.get("passthrough", False)
+    config_manager.set_passthrough(enabled)
+    return {"ok": True, "passthrough": enabled}
 
 
 # ─── 模型列表（免鉴权，供管理页面使用） ───────────────────────
@@ -3060,6 +3109,7 @@ async def chat(request: Request):
     model = body.get("model", "deepseek-default")
     stream = body.get("stream", False)
     tools = body.get("tools", None)
+    passthrough = body.get("passthrough", False) or config_manager.get_passthrough()
 
     # Log client info for debugging
     ua = request.headers.get("user-agent", "?")[:60]
@@ -3146,7 +3196,7 @@ async def chat(request: Request):
             _vlog(f"fresh session failed: {e}")
 
     # 构建 prompt：使用 convert_messages_for_deepseek 处理完整多轮对话
-    prompt = convert_messages_for_deepseek(messages, tools)
+    prompt = convert_messages_for_deepseek(messages, tools, passthrough=passthrough)
     prompt_tokens = _count_tokens(prompt)
 
     # 会话管理：token 超限时自动建新 DeepSeek session

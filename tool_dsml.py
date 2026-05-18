@@ -388,9 +388,21 @@ def _escape_xml_attr(text: str) -> str:
 
 # ─── 工具提示词 ────────────────────────────────────────
 
-def build_dsml_tool_prompt(tools: List[Dict[str, Any]]) -> str:
+def build_dsml_tool_prompt(tools: List[Dict[str, Any]], passthrough: bool = False) -> str:
     if not tools:
         return ""
+
+    if passthrough:
+        # 透传模式：跳过 DSML 格式说明书，直接嵌入原始工具定义
+        import json
+        tools_json = json.dumps(tools, indent=2, ensure_ascii=False)
+        return (
+            "You have the following tools available. "
+            "Use your native tool-calling format when you need to invoke one.\n\n"
+            f"<tools>\n{tools_json}\n</tools>\n\n"
+            "When you use a tool, use whatever tool call format you normally use "
+            "(<|DSML|tool_calls>, TOOL_CALL:, or the standard format you prefer)."
+        )
 
     prompt = """TOOL CALL FORMAT — FOLLOW EXACTLY:
 
