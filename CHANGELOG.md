@@ -1,3 +1,13 @@
+## [v2.3.7] — 2026-05-30
+
+### 新增
+- **管理员密码认证** — 管理面板支持 HTTP Basic Auth 密码认证，保护管理接口安全
+  - 新增 `app/auth.py` 认证模块，使用 `secrets.compare_digest` 防时序攻击
+  - `config.json` 新增 `admin_password` 字段，默认密码 `admin`
+  - 所有管理接口（`/`、`/admin`、`/api/*`）添加认证保护，`/v1/*` API 接口不受影响
+  - 管理面板添加密码输入框，支持中英文提示
+  - 密码保存在 `sessionStorage`，关闭浏览器后需重新输入
+
 ## [v2.2.9] — 2026-05-12
 
 ### 修复
