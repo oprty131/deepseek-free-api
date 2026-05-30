@@ -2052,12 +2052,12 @@ cs()
 from starlette.responses import RedirectResponse
 
 @app.get("/")
-async def root(creds: HTTPBasicCredentials = Depends(verify_admin)):
+async def root():
     return RedirectResponse(url="/admin")
 
 
 @app.get("/admin", response_class=HTMLResponse)
-async def admin(creds: HTTPBasicCredentials = Depends(verify_admin)):
+async def admin():
     from starlette.responses import Response
     html = ADMIN
     return Response(content=html, media_type="text/html", headers={
