@@ -1696,6 +1696,13 @@ a{color:#7dd3fc}
   <button class="btn bp" onclick="savePassthrough()" data-i18n="passthroughSaveBtn" style="font-size:12px;padding:6px 14px;width:auto">保存</button>
 </div>
 <div id="passthroughStatus" style="margin-top:4px;font-size:12px;color:#64748b"></div>
+<hr>
+<div class="sl" style="font-weight:600;color:#e2e8f0;margin-bottom:8px" data-i18n="changePwdTitle">修改管理员密码</div>
+<div class="pw-row" style="margin-top:12px">
+  <input type="password" id="newPwd" data-i18n-ph="newPwdPlaceholder" placeholder="输入新密码" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;padding:12px;font-size:14px">
+</div>
+<button class="btn bp" onclick="changePwd()" data-i18n="changePwdBtn" style="margin-top:8px">保存新密码</button>
+<div id="pwdStatus" style="margin-top:8px;font-size:12px;color:#64748b"></div>
 </div>
 </div>
 
@@ -1737,7 +1744,8 @@ curlStep3:'3. 发送任意消息，找到 completion 请求',curlStep4:'4. 右�
 cleanupBtnDoing:'清理中...',unknown:'未知',
 proxyTitle:'代理配置',proxyHint:'绕过 AWS WAF 拦截。格式：http://127.0.0.1:7890 或 socks5://127.0.0.1:7891',proxySaveBtn:'保存代理设置',proxySaved:'已保存',proxySaveFail:'保存失败: ',proxyLoadFail:'加载失败: ',
 passthroughTitle:'工具透传模式',passthroughHint:'跳过 DSML 格式说明书，直接嵌入原始工具定义（适合 Roo Code / Cline）',passthroughToggle:'关闭',passthroughSaveBtn:'保存',passthroughSaved:'已保存',passthroughSaveFail:'保存失败: ',passthroughLoadFail:'加载失败: ',
-adminLogin:'管理员登录',adminPwdPlaceholder:'请输入管理员密码',adminLoginBtn:'登录',adminPwdRequired:'请输入密码',adminLoginFail:'密码错误'},
+adminLogin:'管理员登录',adminPwdPlaceholder:'请输入管理员密码',adminLoginBtn:'登录',adminPwdRequired:'请输入密码',adminLoginFail:'密码错误',
+changePwdTitle:'修改管理员密码',newPwdPlaceholder:'输入新密码',changePwdBtn:'保存新密码',changePwdOk:'密码已更新',changePwdFail:'修改失败: ',changePwdEmpty:'密码不能为空'},
 en:{phoneLogin:'Phone Login',emailLogin:'Email Login',usage:'Usage',accounts:'Accounts',
 phonePlaceholder:'Phone Number',pwdPlaceholder:'Password',loginBtn:'Login',loginBtnDoing:'Logging in...',
 emailPlaceholder:'Email Address',waitingCfg:'Awaiting Config',configured:'Configured',connFail:'Connection Failed',
@@ -1771,7 +1779,8 @@ curlStep3:'3. Send any message, find the completion request',curlStep4:'4. Right
 cleanupBtnDoing:'Cleaning...',unknown:'Unknown',
 proxyTitle:'Proxy Config',proxyHint:'Bypass AWS WAF. Format: http://127.0.0.1:7890 or socks5://127.0.0.1:7891',proxySaveBtn:'Save Proxy',proxySaved:'Saved',proxySaveFail:'Save Failed: ',proxyLoadFail:'Load Failed: ',
 passthroughTitle:'Tool Passthrough Mode',passthroughHint:'Skip DSML format spec, embed raw tool definitions (suitable for Roo Code / Cline)',passthroughToggle:'Off',passthroughSaveBtn:'Save',passthroughSaved:'Saved',passthroughSaveFail:'Save Failed: ',passthroughLoadFail:'Load Failed: ',
-adminLogin:'Admin Login',adminPwdPlaceholder:'Enter admin password',adminLoginBtn:'Login',adminPwdRequired:'Password required',adminLoginFail:'Wrong password'}};
+adminLogin:'Admin Login',adminPwdPlaceholder:'Enter admin password',adminLoginBtn:'Login',adminPwdRequired:'Password required',adminLoginFail:'Wrong password',
+changePwdTitle:'Change Admin Password',newPwdPlaceholder:'Enter new password',changePwdBtn:'Save New Password',changePwdOk:'Password updated',changePwdFail:'Failed: ',changePwdEmpty:'Password cannot be empty'}};
 function _(k){return (_I[_lang]||_I.zh)[k]||k}
 function toggleLang(){_lang=_lang==='zh'?'en':'zh';localStorage.setItem('ds_lang',_lang);Q('langBtn').textContent=_lang==='zh'?'🌐 EN':'🌐 中';applyI18n()}
 function applyI18n(){
@@ -1945,6 +1954,21 @@ const d=await r.json();
 if(d.ok){Q('proxyStatus').textContent=_('proxySaved');Q('proxyStatus').style.color='#22c55e';t(_('proxySaved'))}
 else{Q('proxyStatus').textContent=_('proxySaveFail')+d.msg;t(_('proxySaveFail')+(d.msg||''),1)}
 }catch(e){Q('proxyStatus').textContent=_('proxySaveFail')+e.message;t(_('proxySaveFail')+e.message,1)}
+}
+async function changePwd(){
+var newPwd=Q('newPwd').value.trim();
+if(!newPwd){Q('pwdStatus').textContent=_('changePwdEmpty');Q('pwdStatus').style.color='#fca5a5';return}
+try{
+const r=await fetch('/api/admin-password',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:newPwd})});
+const d=await r.json();
+if(d.ok){
+Q('pwdStatus').textContent=_('changePwdOk');Q('pwdStatus').style.color='#22c55e';t(_('changePwdOk'));
+// 更新 sessionStorage 中的密码
+sessionStorage.setItem('ds_admin_pwd',newPwd);
+window._adminAuth='Basic '+btoa('admin:'+newPwd);
+Q('newPwd').value='';
+}else{Q('pwdStatus').textContent=_('changePwdFail')+(d.detail||'');Q('pwdStatus').style.color='#fca5a5'}
+}catch(e){Q('pwdStatus').textContent=_('changePwdFail')+e.message;Q('pwdStatus').style.color='#fca5a5'}
 }
 // === 透传模式 ===
 async function loadPassthrough(){
@@ -2460,6 +2484,16 @@ async def set_passthrough(data: dict, creds: HTTPBasicCredentials = Depends(veri
     enabled = data.get("passthrough", False)
     config_manager.set_passthrough(enabled)
     return {"ok": True, "passthrough": enabled}
+
+
+@app.put("/api/admin-password")
+async def change_admin_password(data: dict, creds: HTTPBasicCredentials = Depends(verify_admin)):
+    """修改管理员密码。传 {"password": "新密码"}"""
+    new_pwd = data.get("password", "").strip()
+    if not new_pwd:
+        raise HTTPException(400, "密码不能为空")
+    config_manager.set_admin_password(new_pwd)
+    return {"ok": True}
 
 
 # ─── 模型列表（免鉴权，供管理页面使用） ───────────────────────
