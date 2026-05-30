@@ -1584,16 +1584,7 @@ a{color:#7dd3fc}
 </style>
 </head>
 <body>
-<div class="c" id="loginBox">
-<h1>DeepSeek Proxy</h1>
-<div style="margin-bottom:20px">
-<div class="sl" style="font-weight:600;color:#e2e8f0;margin-bottom:10px" data-i18n="adminLogin">管理员登录</div>
-<div class="pw-row"><input type="password" id="adminPwd" data-i18n-ph="adminPwdPlaceholder" placeholder="请输入管理员密码" autocomplete="current-password"></div>
-<button class="btn bp" onclick="doAdminLogin()" data-i18n="adminLoginBtn">登录</button>
-<div id="loginError" style="margin-top:8px;font-size:12px;color:#fca5a5;display:none"></div>
-</div>
-</div>
-<div class="c" id="mainContent" style="display:none">
+<div class="c" id="mainContent">
 <h1>DeepSeek Proxy</h1>
 <div style="position:absolute;top:32px;right:32px">
 <button onclick="toggleLang()" id="langBtn" style="padding:6px 14px;background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s">🌐 EN</button>
@@ -1744,7 +1735,6 @@ curlStep3:'3. 发送任意消息，找到 completion 请求',curlStep4:'4. 右�
 cleanupBtnDoing:'清理中...',unknown:'未知',
 proxyTitle:'代理配置',proxyHint:'绕过 AWS WAF 拦截。格式：http://127.0.0.1:7890 或 socks5://127.0.0.1:7891',proxySaveBtn:'保存代理设置',proxySaved:'已保存',proxySaveFail:'保存失败: ',proxyLoadFail:'加载失败: ',
 passthroughTitle:'工具透传模式',passthroughHint:'跳过 DSML 格式说明书，直接嵌入原始工具定义（适合 Roo Code / Cline）',passthroughToggle:'关闭',passthroughSaveBtn:'保存',passthroughSaved:'已保存',passthroughSaveFail:'保存失败: ',passthroughLoadFail:'加载失败: ',
-adminLogin:'管理员登录',adminPwdPlaceholder:'请输入管理员密码',adminLoginBtn:'登录',adminPwdRequired:'请输入密码',adminLoginFail:'密码错误',
 changePwdTitle:'修改管理员密码',newPwdPlaceholder:'输入新密码',changePwdBtn:'保存新密码',changePwdOk:'密码已更新',changePwdFail:'修改失败: ',changePwdEmpty:'密码不能为空'},
 en:{phoneLogin:'Phone Login',emailLogin:'Email Login',usage:'Usage',accounts:'Accounts',
 phonePlaceholder:'Phone Number',pwdPlaceholder:'Password',loginBtn:'Login',loginBtnDoing:'Logging in...',
@@ -1779,7 +1769,6 @@ curlStep3:'3. Send any message, find the completion request',curlStep4:'4. Right
 cleanupBtnDoing:'Cleaning...',unknown:'Unknown',
 proxyTitle:'Proxy Config',proxyHint:'Bypass AWS WAF. Format: http://127.0.0.1:7890 or socks5://127.0.0.1:7891',proxySaveBtn:'Save Proxy',proxySaved:'Saved',proxySaveFail:'Save Failed: ',proxyLoadFail:'Load Failed: ',
 passthroughTitle:'Tool Passthrough Mode',passthroughHint:'Skip DSML format spec, embed raw tool definitions (suitable for Roo Code / Cline)',passthroughToggle:'Off',passthroughSaveBtn:'Save',passthroughSaved:'Saved',passthroughSaveFail:'Save Failed: ',passthroughLoadFail:'Load Failed: ',
-adminLogin:'Admin Login',adminPwdPlaceholder:'Enter admin password',adminLoginBtn:'Login',adminPwdRequired:'Password required',adminLoginFail:'Wrong password',
 changePwdTitle:'Change Admin Password',newPwdPlaceholder:'Enter new password',changePwdBtn:'Save New Password',changePwdOk:'Password updated',changePwdFail:'Failed: ',changePwdEmpty:'Password cannot be empty'}};
 function _(k){return (_I[_lang]||_I.zh)[k]||k}
 function toggleLang(){_lang=_lang==='zh'?'en':'zh';localStorage.setItem('ds_lang',_lang);Q('langBtn').textContent=_lang==='zh'?'🌐 EN':'🌐 中';applyI18n()}
@@ -1963,9 +1952,6 @@ const r=await fetch('/api/admin-password',{method:'PUT',headers:{'Content-Type':
 const d=await r.json();
 if(d.ok){
 Q('pwdStatus').textContent=_('changePwdOk');Q('pwdStatus').style.color='#22c55e';t(_('changePwdOk'));
-// 更新 sessionStorage 中的密码
-sessionStorage.setItem('ds_admin_pwd',newPwd);
-window._adminAuth='Basic '+btoa('admin:'+newPwd);
 Q('newPwd').value='';
 }else{Q('pwdStatus').textContent=_('changePwdFail')+(d.detail||'');Q('pwdStatus').style.color='#fca5a5'}
 }catch(e){Q('pwdStatus').textContent=_('changePwdFail')+e.message;Q('pwdStatus').style.color='#fca5a5'}
@@ -2015,58 +2001,6 @@ async function clearUsage(){
 if(!confirm(_('clearConfirm')))return;
 try{await fetch('/api/usage',{method:'DELETE'});t(_('cleared'));loadUsage()}catch(e){t(_('clearFail'),1)}
 }
-// 管理员登录
-function doAdminLogin(){
-var pwd=Q('adminPwd').value;
-if(!pwd){Q('loginError').textContent=_('adminPwdRequired');Q('loginError').style.display='block';return}
-// 使用 Basic Auth 尝试访问 /api/config
-var headers=new Headers();
-headers.set('Authorization','Basic '+btoa('admin:'+pwd));
-fetch('/api/config',{headers:headers}).then(function(r){
-if(r.ok){
-// 登录成功，保存密码到 sessionStorage
-sessionStorage.setItem('ds_admin_pwd',pwd);
-Q('loginBox').style.display='none';
-Q('mainContent').style.display='';
-// 设置全局认证头
-window._adminAuth='Basic '+btoa('admin:'+pwd);
-cs();
-}else{
-Q('loginError').textContent=_('adminLoginFail');
-Q('loginError').style.display='block';
-}
-}).catch(function(e){
-Q('loginError').textContent=_('adminLoginFail');
-Q('loginError').style.display='block';
-});
-}
-// 检查是否已登录
-function checkAdminLogin(){
-var pwd=sessionStorage.getItem('ds_admin_pwd');
-if(pwd){
-window._adminAuth='Basic '+btoa('admin:'+pwd);
-Q('loginBox').style.display='none';
-Q('mainContent').style.display='';
-return true;
-}
-return false;
-}
-// 修改 fetch 默认行为，自动添加认证头
-var _origFetch=window.fetch;
-window.fetch=function(url,options){
-if(!options)options={};
-if(!options.headers)options.headers=new Headers();
-if(window._adminAuth){
-if(options.headers instanceof Headers){
-options.headers.set('Authorization',window._adminAuth);
-}else{
-options.headers['Authorization']=window._adminAuth;
-}
-}
-return _origFetch(url,options);
-};
-// 页面加载时检查登录状态
-checkAdminLogin();
 cs()
 </script>
 </body>
@@ -2081,7 +2015,7 @@ async def root():
 
 
 @app.get("/admin", response_class=HTMLResponse)
-async def admin():
+async def admin(creds: HTTPBasicCredentials = Depends(verify_admin)):
     from starlette.responses import Response
     html = ADMIN
     return Response(content=html, media_type="text/html", headers={
