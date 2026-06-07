@@ -100,7 +100,7 @@ Reverse-engineer **DeepSeek web chat** (chat.deepseek.com) into an **OpenAI-comp
 │  /api/v0/users/login                                     │
 │  /api/v0/chat_session/create                             │
 │  /api/v0/chat/create_pow_challenge                       │
-│  /api/v0/client/settings?scope=model                     │
+│  /api/v0/client/settings                                │
 │  /api/v0/file/upload_file + fork_file_task               │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -438,14 +438,15 @@ curl -X POST http://localhost:8000/v1/models/refresh
 
 ### Dynamic Model Discovery
 
-At startup, the proxy automatically calls DeepSeek's official API `GET /api/v0/client/settings?scope=model` to obtain currently available model configurations.
+At startup, the proxy automatically calls DeepSeek's official API `GET /api/v0/client/settings` (params: `did`, `scope=model`) to obtain currently available model configurations.
 
 Core discovery logic (`proxy.py:418`):
 
 ```python
 def _discover_models():
     resp = cffi_requests.get(
-        "https://chat.deepseek.com/api/v0/client/settings?scope=model",
+        "https://chat.deepseek.com/api/v0/client/settings",
+        params={"did": str(uuid.uuid4()), "scope": "model"},
         headers={"Authorization": f"Bearer {token}", ...}
     )
     # Parse model_configs, generate base/think/search/think+search variants by model_type

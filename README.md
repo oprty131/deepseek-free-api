@@ -100,7 +100,7 @@
 │  /api/v0/users/login                                     │
 │  /api/v0/chat_session/create                             │
 │  /api/v0/chat/create_pow_challenge                       │
-│  /api/v0/client/settings?scope=model                     │
+│  /api/v0/client/settings                                │
 │  /api/v0/file/upload_file + fork_file_task               │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -432,14 +432,15 @@ curl -X POST http://localhost:8000/v1/models/refresh
 
 ### 动态模型发现
 
-启动时自动调用 DeepSeek 官方 API `GET /api/v0/client/settings?scope=model` 获取当前可用模型配置。
+启动时自动调用 DeepSeek 官方 API `GET /api/v0/client/settings`（参数：`did`、`scope=model`）获取当前可用模型配置。
 
 核心发现逻辑（`proxy.py:418`）：
 
 ```python
 def _discover_models():
     resp = cffi_requests.get(
-        "https://chat.deepseek.com/api/v0/client/settings?scope=model",
+        "https://chat.deepseek.com/api/v0/client/settings",
+        params={"did": str(uuid.uuid4()), "scope": "model"},
         headers={"Authorization": f"Bearer {token}", ...}
     )
     # 解析 model_configs，按 model_type 生成基础/思考/搜索/思考+搜索变体
