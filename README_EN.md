@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-teal)](https://fastapi.tiangolo.com/)
 
-Reverse-engineer **DeepSeek web chat** (chat.deepseek.com) into an **OpenAI-compatible API**, with dynamic model discovery, automatic PoW solving, token refresh, and a pure chat edition (no-tools branch, zero tool prompt injection).
+Reverse-engineer **DeepSeek web chat** (chat.deepseek.com) into an **OpenAI-compatible API**, with dynamic model discovery, automatic PoW solving, and token refresh.
 
 本项目所修改代码均为ai完成，不含任何一句人工代码，望周知！
 
@@ -14,7 +14,7 @@ Reverse-engineer **DeepSeek web chat** (chat.deepseek.com) into an **OpenAI-comp
 
 [zhangjiabo522](https://github.com/zhangjiabo522) — Thanks for providing model tokens for Vision feature testing!
 
-> **💡 Need pure chat without tools?** If your use case is pure conversation (writing, translation, coding, Q&A), use the [`no-tools` branch](#branch-info) — no tool prompt injection, cleaner context, higher output quality.
+> **⚠️ The `no-tools` branch is discontinued** — no longer receives feature updates or bug fixes.
 
 > **Reference project:** [NIyueeE/ds-free-api](https://github.com/NIyueeE/ds-free-api) (Rust). This is a Python rewrite using pure HTTP forwarding (curl_cffi with Chrome TLS fingerprint) instead of browser automation, with lower resource usage.
 
@@ -64,7 +64,7 @@ Reverse-engineer **DeepSeek web chat** (chat.deepseek.com) into an **OpenAI-comp
 - **Web Search** — `search_enabled` parameter for search model variants
 - **Multilingual Admin Panel** — Embedded single-file Web UI, Chinese/English toggle, phone/email login, cURL import
 - **Pure HTTP Solution** — No browser/Playwright/Chrome dependency, uses curl_cffi to emulate Chrome TLS fingerprint
-- **No-Tools Branch** — Dedicated `no-tools` branch with tool calling logic removed, ideal for pure chat scenarios
+- **No-Tools Branch (discontinued)** — The `no-tools` branch is no longer maintained and does not receive feature updates or bug fixes
 
 ## Architecture
 
@@ -135,7 +135,7 @@ chmod +x deploy.sh
 ./deploy.sh --stop
 ```
 
-After deployment, visit: **http://localhost:8000/admin**
+After deployment, visit: **http://localhost:8000/admin** (default credentials: `admin` / `admin`, changeable in admin panel settings)
 
 ### Docker
 
@@ -143,7 +143,7 @@ After deployment, visit: **http://localhost:8000/admin**
 docker run -d -p 8000:8000 -v $(pwd)/config.json:/app/config.json ghcr.io/fly143/deepseek-free-api:latest
 ```
 
-> 💡 **No tools needed?** Clone the [`no-tools` branch](https://github.com/Fly143/deepseek-free-api/tree/no-tools) for a cleaner pure chat edition (no prompt injection, higher output quality).
+> ⚠️ **`no-tools` branch discontinued.**
 
 ### Manual Install
 
@@ -546,13 +546,10 @@ This repository provides two branches:
 
 | Branch | Characteristics |
 |--------|----------------|
-| `main` (current) | Full-featured — supports DSML tool calling, streaming sieve, session management, etc. Use when tool calling is needed |
-| `no-tools` | Pure chat proxy — no tool call prompt injection, cleaner output. Ideal for writing, translation, code generation, etc. |
+| `main` (current) | Full-featured — supports DSML tool calling, streaming sieve, session management, etc. |
+| `no-tools` (discontinued) | Pure chat proxy, no longer maintained — does not receive feature updates or bug fixes |
 
-> You are currently on the `main` branch. For pure chat without tools, switch to `no-tools`:
-> ```bash
-> git checkout main
-> ```
+> ⚠️ The `no-tools` branch is discontinued. Use the `main` branch instead.
 
 ## PoW Solver
 

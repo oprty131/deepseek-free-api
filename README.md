@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-teal)](https://fastapi.tiangolo.com/)
 
-将 **DeepSeek 网页端免费对话**（chat.deepseek.com）反代为 **OpenAI 兼容 API**，支持动态模型发现、PoW 自动求解、Token 自动刷新，并提供纯聊天版（no-tools 分支，无工具调用 prompt 注入）。
+将 **DeepSeek 网页端免费对话**（chat.deepseek.com）反代为 **OpenAI 兼容 API**，支持动态模型发现、PoW 自动求解、Token 自动刷新。
 
 本项目所修改代码均为ai完成，不含任何一句人工代码，望周知！
 
@@ -14,7 +14,7 @@
 
 [zhangjiabo522](https://github.com/zhangjiabo522) — 大力感谢热心群友为 Vision 功能修改测试提供模型Token算力
 
-> **💡 不需要工具调用？** 如果你的使用场景是纯对话（写作、翻译、代码、问答），建议使用 [`no-tools` 分支](#无工具分支-no-tools) — 不注入工具 prompt，上下文更干净，输出质量更高。
+> **⚠️ `no-tools` 分支已停止维护**，不再同步新功能和修复。
 
 > **参考项目：** [NIyueeE/ds-free-api](https://github.com/NIyueeE/ds-free-api)（Rust 版），本项目为 Python 重写。
 > Rust 原版使用浏览器自动化（Playwright/Chrome），本 Python 版改为**纯 HTTP 转发**（curl_cffi 模拟 Chrome TLS 指纹），资源占用更低。
@@ -40,7 +40,7 @@
   - [动态模型发现](#动态模型发现)
   - [当前可用模型](#当前可用模型)
 - [工具调用详解](#工具调用详解)
-- [无工具分支 (no-tools)](#无工具分支-no-tools)
+- [无工具分支 (no-tools，已停更)](#无工具分支-no-tools)
 - [PoW 求解机制](#pow-求解机制)
 - [Token 自动刷新](#token-自动刷新)
 - [管理命令](#管理命令)
@@ -65,7 +65,7 @@
 - **联网搜索** — 支持 search 模型变体的 `search_enabled` 参数
 - **管理面板** — 内嵌单文件 Web UI，支持手机号/邮箱登录、cURL 导入
 - **纯 HTTP 方案** — 不依赖浏览器/Playwright/Chrome，用 curl_cffi 模拟 Chrome TLS 指纹
-- **无工具分支** — 提供 `no-tools` 分支，移除工具调用逻辑，适合纯对话场景，输出质量更高
+- **无工具分支（已停更）** — `no-tools` 分支已停止维护，不再同步新功能和修复
 
 ## 架构
 
@@ -135,7 +135,7 @@ chmod +x deploy.sh
 ./deploy.sh --stop
 ```
 
-部署完成后访问：**http://localhost:8000/admin**
+部署完成后访问：**http://localhost:8000/admin**（默认账号密码：`admin` / `admin`，可在管理面板设置中修改）
 
 ### Docker 部署
 
@@ -143,7 +143,7 @@ chmod +x deploy.sh
 docker run -d -p 8000:8000 -v $(pwd)/config.json:/app/config.json ghcr.io/fly143/deepseek-free-api:latest
 ```
 
-> 💡 **不需要工具调用？** 克隆 [`no-tools` 分支](https://github.com/Fly143/deepseek-free-api/tree/no-tools) 即可获得更干净的纯对话版本（无 prompt 注入，输出质量更高）。
+> ⚠️ **`no-tools` 分支已停更。**
 
 ### 手动安装
 
@@ -484,13 +484,10 @@ def _discover_models():
 
 | 分支 | 特点 |
 |------|------|
-| `main`（当前分支） | 完整功能版 — 支持 DSML 工具调用、流式筛分、会话管理等。需要工具调用时使用 |
-| `no-tools` | 纯对话代理 — 无工具调用 prompt 注入，输出更干净。适合写作、翻译、代码生成等场景 |
+| `main`（当前分支） | 完整功能版 — 支持 DSML 工具调用、流式筛分、会话管理等 |
+| `no-tools`（已停更） | 纯对话代理，已停止维护，不再同步新功能和修复 |
 
-> 当前你正在使用 `main` 分支。如需纯对话版本（无工具调用），请切换到 `no-tools` 分支：
-> ```bash
-> git checkout no-tools
-> ```
+> ⚠️ `no-tools` 分支已停更，建议使用 main 分支。
 
 
 ## 工具调用详解

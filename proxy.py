@@ -2449,7 +2449,7 @@ async def admin_models(creds: HTTPBasicCredentials = Depends(verify_admin)):
 
 
 # ── 模型映射（动态从 DeepSeek 探测）─────────────────
-MODEL_CONFIG_URL = "https://chat.deepseek.com/api/v0/client/settings?scope=model"
+MODEL_CONFIG_URL = "https://chat.deepseek.com/api/v0/client/settings"
 
 _models_cache = {}       # model_id → (thinking, search, max_in, max_out)
 _models_cache_time = 0
@@ -2479,9 +2479,17 @@ def _discover_models() -> dict:
     }
 
     try:
-        resp = cffi_requests.get(MODEL_CONFIG_URL, headers=headers, timeout=10, proxies=_get_proxy_dict())
+        params = {"did": str(uuid.uuid4()), "scope": "model"}
+        resp = cffi_requests.get(MODEL_CONFIG_URL, params=params, headers=headers, timeout=10, proxies=_get_proxy_dict())
         data = resp.json()
-        biz_data = data.get("data", {}).get("biz_data", {})
+        biz_data = data.get("data", {})
+        if not isinstance(biz_data, dict):
+            print(f"[模型发现] 响应格式异常: data={type(biz_data).__name__}")
+            return None
+        biz_data = biz_data.get("biz_data")
+        if not biz_data:
+            print(f"[模型发现] biz_data 为空 (biz_code={data.get('data', {}).get('biz_code')} {data.get('data', {}).get('biz_msg', '')})")
+            return None
         settings = biz_data.get("settings", {})
         model_configs = settings.get("model_configs", {}).get("value", [])
 
@@ -3162,7 +3170,12 @@ async def chat(request: Request):
     _vlog(msg)
 
     # 模型映射
-    model_info = get_models().get(model, get_models().get("deepseek-default"))
+    models = get_models()
+    if not models:
+        raise HTTPException(503, detail="Model list is empty — DeepSeek model discovery failed")
+    model_info = models.get(model, models.get("deepseek-default"))
+    if model_info is None:
+        raise HTTPException(404, detail=f"Unknown model '{model}' and no fallback available")
     thinking_enabled, search_enabled, _, _ = model_info
 
     cfg = {
