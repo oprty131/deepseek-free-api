@@ -2927,7 +2927,7 @@ def _delete_deepseek_session(token: str, session_id: str) -> bool:
             "https://chat.deepseek.com/api/v0/chat_session/delete",
             json={"chat_session_id": session_id},
             headers=headers,
-            impersonate="chrome120",
+            impersonate="chrome149",
             timeout=15,
             proxies=_get_proxy_dict(),
         )
@@ -3169,7 +3169,7 @@ def _parse_image_url(url_or_data: str) -> dict | None:
     # HTTP URL
     if s.startswith("http://") or s.startswith("https://"):
         try:
-            resp = cffi_requests.get(s, timeout=30, impersonate="chrome120", proxies=_get_proxy_dict())
+            resp = cffi_requests.get(s, timeout=30, impersonate="chrome149", proxies=_get_proxy_dict())
             if resp.status_code == 200:
                 ct = resp.headers.get("content-type", "image/png")
                 ext = ct.split("/")[-1] if "/" in ct else "png"
@@ -3273,7 +3273,7 @@ async def chat(request: Request):
                 auth_h = {**cfg.get("headers", {}), "authorization": f"Bearer {token}"}
                 sess_resp = cffi_requests.post(
                     "https://chat.deepseek.com/api/v0/chat_session/create",
-                    json={}, headers=auth_h, impersonate="chrome120", timeout=15,
+                    json={}, headers=auth_h, impersonate="chrome149", timeout=15,
                     proxies=_get_proxy_dict())
                 if sess_resp.status_code == 200:
                     biz = sess_resp.json().get("data", {}).get("biz_data", {})
@@ -3302,7 +3302,7 @@ async def chat(request: Request):
                 auth_h = {**cfg.get("headers", {}), "authorization": f"Bearer {token}"}
                 sess_resp = cffi_requests.post(
                     "https://chat.deepseek.com/api/v0/chat_session/create",
-                    json={}, headers=auth_h, impersonate="chrome120", timeout=15,
+                    json={}, headers=auth_h, impersonate="chrome149", timeout=15,
                     proxies=_get_proxy_dict())
                 if sess_resp.status_code == 200:
                     biz = sess_resp.json().get("data", {}).get("biz_data", {})
@@ -4338,7 +4338,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 "https://chat.deepseek.com/api/v0/chat/completion",
                 headers=req_headers,
                 json=req_body,
-                impersonate="chrome120",
+                impersonate="chrome149",
                 stream=True,
                 timeout=120,
                 proxies=_get_proxy_dict(),
@@ -4526,7 +4526,7 @@ def _do_chat(cfg, prompt, model, thinking_enabled, search_enabled, stream, is_re
                 "https://chat.deepseek.com/api/v0/chat/completion",
                 headers=req_headers,
                 json=req_body,
-                impersonate="chrome120",
+                impersonate="chrome149",
                 stream=True,  # Always stream — curl_cffi stream=False truncates SSE
                 timeout=120,
                 proxies=_get_proxy_dict(),
