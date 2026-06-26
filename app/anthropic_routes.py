@@ -142,7 +142,7 @@ async def anthropic_messages(request: Request):
                 auth_h = {**cfg.get("headers", {}), "authorization": f"Bearer {token}"}
                 sess_resp = cffi_requests.post(
                     "https://chat.deepseek.com/api/v0/chat_session/create",
-                    json={}, headers=auth_h, impersonate="chrome120", timeout=15)
+                    json={}, headers=auth_h, impersonate="chrome149", timeout=15)
                 if sess_resp.status_code == 200:
                     biz = sess_resp.json().get("data", {}).get("biz_data", {})
                     new_sid = biz.get("chat_session", {}).get("id", "") or biz.get("id", "")
@@ -163,7 +163,7 @@ async def anthropic_messages(request: Request):
                 auth_h = {**cfg.get("headers", {}), "authorization": f"Bearer {token}"}
                 sess_resp = cffi_requests.post(
                     "https://chat.deepseek.com/api/v0/chat_session/create",
-                    json={}, headers=auth_h, impersonate="chrome120", timeout=15)
+                    json={}, headers=auth_h, impersonate="chrome149", timeout=15)
                 if sess_resp.status_code == 200:
                     biz = sess_resp.json().get("data", {}).get("biz_data", {})
                     new_sid = biz.get("chat_session", {}).get("id", "") or biz.get("id", "")
