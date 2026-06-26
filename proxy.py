@@ -2136,18 +2136,30 @@ async def deepseek_login(data: dict):
         account_label = f"{area_code} {mobile}"
 
     DS_HEADERS = {
-        "content-type": "application/json",
-        "origin": "https://chat.deepseek.com",
-        "referer": "https://chat.deepseek.com/",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0 Safari/537.36",
-        "x-client-version": "2.0.2",
-        "x-client-platform": "web",
-    }
+    "accept": "*/*",
+    "accept-language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+    "content-type": "application/json",
+    "origin": "https://chat.deepseek.com",
+    "referer": "https://chat.deepseek.com/",
+    "sec-ch-ua": '"Chromium";v="149", "Not/A)Brand";v="99"',
+    "sec-ch-ua-mobile": "?1",
+    "sec-ch-ua-platform": '"iOS"',
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/149.0.7827.137 Mobile/15E148 Safari/604.1",
+    "x-app-version": "2.0.0",
+    "x-client-bundle-id": "com.deepseek.chat",
+    "x-client-locale": "en_US",
+    "x-client-platform": "web",
+    "x-client-timezone-offset": "10800",
+    "x-client-version": "2.0.0",
+}
 
     try:
         # 0. 创建 Session + 预访问首页获取 WAF Cookie
         session = cffi_requests.Session()
-        session.impersonate = "chrome120"
+        session.impersonate = "chrome149"
         proxy_dict = _get_proxy_dict()
         if proxy_dict:
             session.proxies = proxy_dict
@@ -2606,20 +2618,32 @@ def relogin(cfg: dict) -> dict | None:
         return None
 
     DS_HEADERS = {
-        "content-type": "application/json",
-        "origin": "https://chat.deepseek.com",
-        "referer": "https://chat.deepseek.com/",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0 Safari/537.36",
-        "x-client-version": "2.0.2",
-        "x-client-platform": "web",
-    }
+    "accept": "*/*",
+    "accept-language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+    "content-type": "application/json",
+    "origin": "https://chat.deepseek.com",
+    "referer": "https://chat.deepseek.com/",
+    "sec-ch-ua": '"Chromium";v="149", "Not/A)Brand";v="99"',
+    "sec-ch-ua-mobile": "?1",
+    "sec-ch-ua-platform": '"iOS"',
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/149.0.7827.137 Mobile/15E148 Safari/604.1",
+    "x-app-version": "2.0.0",
+    "x-client-bundle-id": "com.deepseek.chat",
+    "x-client-locale": "en_US",
+    "x-client-platform": "web",
+    "x-client-timezone-offset": "10800",
+    "x-client-version": "2.0.0",
+}
 
     try:
         print(f"[Token] 自动重新登录 {account_label}...")
 
         # 0. 创建 Session + 预访问首页获取 WAF Cookie
         session = cffi_requests.Session()
-        session.impersonate = "chrome120"
+        session.impersonate = "chrome149"
         proxy_dict = _get_proxy_dict()
         if proxy_dict:
             session.proxies = proxy_dict
@@ -2814,7 +2838,7 @@ def get_pow_response(target_path: str = "/api/v0/chat/completion",
             "https://chat.deepseek.com/api/v0/chat/create_pow_challenge",
             headers=headers,
             json={"target_path": target_path},
-            impersonate="chrome120",
+            impersonate="chrome149",
             timeout=15,
             proxies=_get_proxy_dict(),
         )
