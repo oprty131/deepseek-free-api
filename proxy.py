@@ -54,12 +54,24 @@ _DEBUG = os.getenv("DS_DEBUG", "").lower() in ("1", "true", "yes")
 
 # ── DeepSeek API 通用 Headers ─────────────────────
 DS_HEADERS = {
+    "accept": "*/*",
+    "accept-language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
     "content-type": "application/json",
     "origin": "https://chat.deepseek.com",
     "referer": "https://chat.deepseek.com/",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/134.0.0.0 Safari/537.36",
-    "x-client-version": "2.0.2",
+    "sec-ch-ua": '"Chromium";v="149", "Not/A)Brand";v="99"',
+    "sec-ch-ua-mobile": "?1",
+    "sec-ch-ua-platform": '"iOS"',
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/149.0.7827.137 Mobile/15E148 Safari/604.1",
+    "x-app-version": "2.0.0",
+    "x-client-bundle-id": "com.deepseek.chat",
+    "x-client-locale": "en_US",
     "x-client-platform": "web",
+    "x-client-timezone-offset": "10800",
+    "x-client-version": "2.0.0",
 }
 
 def _vlog(msg: str):
